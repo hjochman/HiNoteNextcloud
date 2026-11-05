@@ -1,0 +1,32 @@
+.DS_Store
+appBackup/
+
+# Entpacktes HiNote (proprietaer, nur lokale Referenz)
+tmp/jadx_src/
+tmp/jadx_src_124/
+tmp/jadx_res/
+tmp/apk/
+tmp/device/
+
+# Build-Ausgaben
+build/
+**/build/
+.gradle/
+.idea/
+.kotlin/
+*.iml
+*.apk
+*.hap
+PaperNotes-by-Bob-*.apk
+dist/
+.bob/
+
+# Lokale Konfiguration und Secrets
+local.properties
+keystore.properties
+*.keystore
+*.jks
+tools/uber-apk-signer.jar
+
+# Temporaer fuer Setup
+PDF-Scan-BY-BOB/

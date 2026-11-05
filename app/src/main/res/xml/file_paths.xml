@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nur der Unterordner "share" im App-Cache wird per FileProvider freigegeben (Teilen einer .pnote-Datei). -->
+<paths>
+    <cache-path name="share" path="share/" />
+</paths>
