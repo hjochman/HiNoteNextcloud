@@ -2,13 +2,13 @@
 
 Stand: 2026-11-05. Dies ist der Hauptplan für die App. Der Plan `hinote-nextcloud-plan.md` behandelt nur noch den HiNote-Altbestand (Analyse, Parser, Übernahme) und gehört zu Phase 5. Befunde und Belege stehen in `tmp/FINDINGS.md`. Was dort nicht belegt ist, steht hier als **Annahme** oder **offen**.
 
-**Fortschritt (Ende 2026-11-05):** Phase 1 und Phase 2 sind umgesetzt und auf dem Tablet geprüft (Schreiben mit Stift, Editor-Leisten, Vorlagen, Startseite mit Ordnern, Kacheln, Liste, Suche, Notizmenü, Sortierung). Als Nächstes folgt Phase 2b, danach Phase 3. Die App ist von Anfang an zweisprachig (Deutsch und Englisch, siehe Abschnitt 10).
+**Fortschritt (2026-11-06, Release 0.2.0):** Phase 1 und Phase 2 sind umgesetzt und auf dem Tablet geprüft (Schreiben mit Stift, Editor-Leisten, Vorlagen, Startseite mit Ordnern, Kacheln, Liste, Suche, Notizmenü, Sortierung). Phase 2b (Auswahlmodus, Papierkorb-Ansicht, Einstellungen, Über-Seite, `LICENSE`) ist umgesetzt und als 0.2.0 gebaut; auf dem Tablet per adb nur oberflächlich geprüft (Über-Seite beim ersten Start, Startseite, Menü, Einstellungen, leerer Papierkorb, Auswahlmodus mit Auswahl und Titel), Gerätetest der Sammelaktionen (Teilen, Verschieben, Löschen), von Papierkorb mit Inhalt und von Englisch steht aus. Als Nächstes folgt Phase 3. Die App ist von Anfang an zweisprachig (Deutsch und Englisch, siehe Abschnitt 10).
 
-### Statusübersicht (Stand 2026-11-05)
+### Statusübersicht (Stand 2026-11-06)
 
 | Bereich | Stand | Bemerkung |
 |---|---|---|
-| Projektgerüst, Signierung, Tests | fertig | Gradle 9.8.2, AGP 9.4.1, `:app` und `:eink-stub` (compileOnly), 158 Tests (`@Test`), Lint 0 |
+| Projektgerüst, Signierung, Tests | fertig | Gradle 9.8.2, AGP 9.4.1, `:app` und `:eink-stub` (compileOnly), 219 Tests (`@Test`, Gradle-Bericht: 219 ausgeführt, 0 Fehler), Lint 0 Fehler (nur Warnungen), Version 0.2.0 |
 | Speicherformat `.pnote` und Speicherschicht | fertig | ZIP + JSON, atomar, Größenlimits; Ordner, Papierkorb `.trash/` in `Documents/PaperNotes` |
 | Editor: Schreiben, Undo/Redo, Seiten hinzufügen/löschen | fertig | Stift über `HWEditView`, Speichern nach 5 s und bei `onPause` |
 | Editor: Leisten (Kopfzeile, Werkzeuge, Stift/Radierer-Popup mit Pin) | fertig | Stifttyp-Zuordnung (4/2/3/6) aus dem Dekompilat, nicht belegt. Radierer in drei Stilen (Standard, Fläche, Striche) mit Größe (2 bis 120) ist eingebaut |
@@ -17,7 +17,7 @@ Stand: 2026-11-05. Dies ist der Hauptplan für die App. Der Plan `hinote-nextclo
 | Startseite (Ordner, Kacheln, Liste, Suche, Notizmenü, Sortierung) | fertig | Vorschauen aus Vorlage und Strichen, Cache in `cacheDir/previews` |
 | App-Icon (Adaptive Icon) | fertig | Rahmen im Launcher sichtbar, Icon wirkt etwas klein (Inset 22 %, ggf. 20 %) |
 | Zweisprachigkeit (de/en) | im Code fertig | auf dem Gerät nur Deutsch gesehen |
-| **Phase 2b:** Mehrfachauswahl, Einstellungen, Papierkorb-Ansicht, Über, `LICENSE` | **offen, nächster Schritt** | siehe Abschnitt Phase 2b |
+| **Phase 2b:** Mehrfachauswahl, Einstellungen, Papierkorb-Ansicht, Über, `LICENSE` | **umgesetzt (0.2.0), Gerätetest teilweise** | Auf dem Tablet gesehen: Über-Seite (Auto-Anzeige), Startseite, Menü `⋮`, Einstellungen, leerer Papierkorb, Auswahlmodus (Haken setzen). **Gerätetest ausstehend:** Teilen/Verschieben/Löschen, Papierkorb mit Inhalt (Wiederherstellen, endgültig löschen), Englisch. Siehe Abschnitt Phase 2b |
 | **Phase 3 (Rest):** Radierkreis, Lasso-Unterleiste und Skalieren, Seitenleiste, Zoom, Skalierung der Striche | **offen** | Lasso-Werkzeug ist eingebunden (laut Code: Auswahl, Verschieben, Löschen und Verlauf über das Framework; auf dem Tablet nicht geprüft). Platzhalter (ausgegraut): Menü `⋮`, Seitenleiste, Textbox, Bild, Audio |
 | Phase 4: Text, Bild, Audio | offen | Unterleisten von Lasso, Textbox, Bild in HiNote noch nicht erfasst |
 | Phase 5: Übernahme der HiNote-Notizen | offen | Prototyp `tmp/export_all.py` exportierte 11 von 33 |
@@ -121,7 +121,7 @@ Jede Phase endet mit einem Test auf dem Tablet und einer Rückmeldung des Nutzer
 - Papierkorb statt sofortigem Löschen (umgesetzt, Ansicht dazu siehe Phase 2b).
 - Sortierung wählbar (umgesetzt).
 
-### Phase 2b: Mehrfachauswahl, Einstellungen, Papierkorb, Über (nächster Schritt, Entscheidungen vom 2026-11-05)
+### Phase 2b: Mehrfachauswahl, Einstellungen, Papierkorb, Über (umgesetzt in 0.2.0, Gerätetest teilweise; Entscheidungen vom 2026-11-05)
 Entschieden: Der Papierkorb behält Notizen, bis der Nutzer ihn leert (keine automatische Frist). Die Einstellungen starten mit dem oben genannten Umfang. Die Lizenz ist GPL-3.0-or-later (wie PDFScan by BOB); die `LICENSE`-Datei (offizieller GNU-Text) und ein README-Abschnitt "Lizenz" werden mit diesem Schritt angelegt. Logo für Über: `PaperNotes BY BOB.png`. Das Banner `PaperNotes BY BOB-banner.jpg` ist für die README gedacht.
 Referenz: Menü `⋮` der Startseite in HiNote enthält "Notizen auswählen", "Sortieren nach" und "Einstellungen". Ein Teil davon ist umgesetzt (Sortieren nach).
 - **Auswahlmodus** ("Notizen auswählen"): Kopfzeile wechselt zu `✕  N Elemente ausgewählt`. Aktionen oben rechts als Symbol mit Beschriftung: Teilen, Exportieren, Verschieben, Löschen, Alle auswählen. Jede Kachel und Listenzeile bekommt unten rechts ein Auswahlkästchen, ein Tipp auf die Kachel setzt oder löst den Haken (öffnet nichts). Notizen und Ordner sind gemeinsam wählbar. Zurück-Taste oder `✕` beendet den Modus.
@@ -132,7 +132,7 @@ Referenz: Menü `⋮` der Startseite in HiNote enthält "Notizen auswählen", "S
   - **Inhalt:** Logo (das PaperNotes-Bild, 120 dp), App-Name "PaperNotes by BOB", "Version x.y.z" (aus `BuildConfig.VERSION_NAME`, diese kommt aus `VERSION`), Kasten "Neu in Version x.y.z" mit Stichpunkten zur aktuellen Version, kurze Beschreibung der App, Lizenzhinweis ("Freie Software unter der GNU General Public License v3.0 oder später. Copyright © 2025 hjochman. Dieses Programm wird ohne jede Gewährleistung verteilt."), Link "Quellcode auf GitHub" (`https://github.com/hjochman/HiNoteNextcloud`), Knopf "Schließen". Zurück-Pfeil in der Kopfzeile.
   - **Automatisch anzeigen:** Beim ersten Start nach der Installation und nach jedem Update mit geänderter `versionName` öffnet die App zuerst den About-Screen. Gespeichert wird die zuletzt gesehene Version (Preference `about_last_seen_version`), geschrieben beim Schließen. Danach nur noch über das Menü erreichbar.
   - **Pflege:** Der Kasten "Neu in Version" und die Beschreibung werden bei jeder Versionsänderung angepasst (Regel in `AGENT.md` aufnehmen). Sie sind Teil der Release-Prüfung.
-  - **Offen:** `LICENSE`-Datei (GPL-3.0-or-later, offizieller GNU-Text) und README-Abschnitt "Lizenz" fehlen im Projekt noch und werden mit diesem Schritt angelegt, sobald der Nutzer die Lizenz bestätigt.
+  - **Erledigt:** `LICENSE`-Datei (GPL-3.0-or-later) und README-Abschnitt "Lizenz" liegen im Projekt.
   - Der Link öffnet den Browser. Das Tablet hat einen; ohne Browser darf nichts abstürzen (Fehlermeldung als Hinweis).
 - Alle Texte zweisprachig (Deutsch und Englisch), Menüs und Dialoge nach E-Ink-Regeln.
 

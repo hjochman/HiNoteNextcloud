@@ -38,6 +38,18 @@
         </provider>
 
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".trash.TrashActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".about.AboutActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".editor.EditorActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"

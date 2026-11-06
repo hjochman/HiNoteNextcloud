@@ -84,6 +84,68 @@
             android:src="@drawable/ic_more" />
     </LinearLayout>
 
+    <!-- Auswahlmodus: ersetzt den Kopfbereich (Sichtbarkeit in MainActivity). Aktionen mit Symbol und Beschriftung. -->
+    <LinearLayout
+        android:id="@+id/selectionBar"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:background="@color/surface_gray"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/buttonSelClose"
+            style="@style/Widget.PaperNotes.IconButton"
+            android:contentDescription="@string/selection_end"
+            android:src="@drawable/ic_close" />
+
+        <TextView
+            android:id="@+id/textSelCount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textColor="@color/black"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/actionShare"
+            style="@style/Widget.PaperNotes.SelectionAction"
+            android:drawableTop="@drawable/ic_share"
+            android:text="@string/action_share" />
+
+        <TextView
+            android:id="@+id/actionExport"
+            style="@style/Widget.PaperNotes.SelectionAction"
+            android:enabled="false"
+            android:drawableTop="@drawable/ic_export"
+            android:text="@string/action_export" />
+
+        <TextView
+            android:id="@+id/actionMove"
+            style="@style/Widget.PaperNotes.SelectionAction"
+            android:drawableTop="@drawable/ic_move"
+            android:text="@string/action_move" />
+
+        <TextView
+            android:id="@+id/actionDelete"
+            style="@style/Widget.PaperNotes.SelectionAction"
+            android:drawableTop="@drawable/ic_trash"
+            android:text="@string/delete" />
+
+        <TextView
+            android:id="@+id/actionSelectAll"
+            style="@style/Widget.PaperNotes.SelectionAction"
+            android:drawableTop="@drawable/ic_select_all"
+            android:text="@string/select_all" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/textCount"
         android:layout_width="match_parent"

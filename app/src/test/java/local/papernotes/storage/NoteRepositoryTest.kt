@@ -356,4 +356,331 @@ class NoteRepositoryTest {
         ok(repo.delete(n.id)) // legt .trash an, das nicht erscheinen darf
         assertEquals(listOf("a", "a/Sub", "B"), repo.listAllFolders().valueOrNull())
     }
+
+    // ---------------------------------------------------------------- Papierkorb
+
+    private fun trashed(note: local.papernotes.model.Note): TrashedNote {
+        ok(repo.save(note))
+        ok(repo.delete(note.id))
+        return repo.listTrash().valueOrNull()!!.first { it.id == note.id }
+    }
+
+    @Test
+    fun listTrashEmptyWithoutTrashDir() {
+        assertEquals(emptyList<TrashedNote>(), repo.listTrash().valueOrNull())
+        assertEquals(0, repo.trashCount())
+    }
+
+    @Test
+    fun listTrashShowsMetadataNewestDeletedFirst() {
+        val a = TestData.simpleNote("Ordner/Tief", "Alt").copy(modified = 77L)
+        val b = TestData.simpleNote("", "Neu")
+        val ta = trashed(a)
+        val tb = trashed(b)
+        val list = repo.listTrash().valueOrNull()!!
+        assertEquals(listOf(tb.id, ta.id), list.map { it.id }) // zuletzt gelöscht zuerst
+        assertEquals("Alt", ta.title)
+        assertEquals("Ordner/Tief", ta.folderPath)
+        assertEquals(77L, ta.modified)
+        assertEquals("${a.id}.pnote", ta.entryName)
+        assertEquals(1, ta.pageCount)
+        assertTrue(ta.deleted > 1_000L && tb.deleted > ta.deleted)
+        assertEquals(2, repo.trashCount())
+    }
+
+    @Test
+    fun listTrashSkipsCorruptForeignAndSymlinkedEntries() {
+        trashed(TestData.simpleNote("", "gut"))
+        val trash = File(root, ".trash")
+        File(trash, "${TestData.uuid()}.pnote").writeBytes(ByteArray(50) { 3 })
+        File(trash, "fremd.pnote").writeText("meins")
+        File(trash, "readme.txt").writeText("hallo")
+        // Manifest-ID passt nicht zum Dateinamen
+        val other = TestData.simpleNote("", "falsch")
+        PnoteCodec.write(other, File(trash, "${TestData.uuid()}.pnote"))
+        assertEquals(listOf("gut"), repo.listTrash().valueOrNull()!!.map { it.title })
+        assertEquals(1, repo.trashCount())
+    }
+
+    @Test
+    fun listTrashKeepsDuplicateIdsWithDistinctEntryNames() {
+        val n = TestData.simpleNote("", "doppelt")
+        ok(repo.save(n))
+        ok(repo.delete(n.id))
+        ok(repo.save(n.copy(title = "doppelt v2")))
+        ok(repo.delete(n.id))
+        val list = repo.listTrash().valueOrNull()!!
+        assertEquals(2, list.size)
+        assertEquals(2, list.map { it.entryName }.toSet().size)
+        assertEquals(listOf("doppelt v2", "doppelt"), list.map { it.title })
+    }
+
+    @Test
+    fun restoreGoesBackToOriginalFolder() {
+        val n = TestData.simpleNote("Ordner", "zurück").copy(favorite = true)
+        val t = trashed(n)
+        assertEquals(n.id, repo.restoreFromTrash(t.entryName).valueOrNull())
+        assertTrue(File(root, "Ordner/${n.id}.pnote").isFile)
+        assertFalse(File(root, ".trash/${t.entryName}").exists())
+        assertEquals(n, repo.load(n.id).valueOrNull())
+        assertEquals(0, repo.trashCount())
+        assertEquals(PnoteError.NotFound, repo.restoreFromTrash(t.entryName).errorOrNull())
+    }
+
+    @Test
+    fun restoreRecreatesMissingNestedFolder() {
+        val n = TestData.simpleNote("Weg/Tief", "x")
+        val t = trashed(n)
+        assertTrue(File(root, "Weg").deleteRecursively()) // Ordner existiert nach dem Löschen nicht mehr
+        assertFalse(File(root, "Weg").exists())
+        ok(repo.restoreFromTrash(t.entryName))
+        assertTrue(File(root, "Weg/Tief/${n.id}.pnote").isFile)
+        assertEquals("Weg/Tief", repo.load(n.id).valueOrNull()!!.folderPath)
+    }
+
+    @Test
+    fun restoreFallsBackToRootWhenFolderPathIsUnusable() {
+        // Der ursprüngliche Ordnerpfad ist inzwischen eine Datei: Wiederherstellung fällt auf die Wurzel zurück
+        val n = TestData.simpleNote("Block", "x")
+        val t = trashed(n)
+        assertTrue(File(root, "Block").delete())
+        File(root, "Block").writeText("ich bin eine Datei")
+        assertEquals(n.id, repo.restoreFromTrash(t.entryName).valueOrNull())
+        assertEquals("", repo.load(n.id).valueOrNull()!!.folderPath)
+        assertTrue(File(root, "${n.id}.pnote").isFile)
+        assertEquals("ich bin eine Datei", File(root, "Block").readText())
+    }
+
+    @Test
+    fun restoreWithIdConflictKeepsBothUnderNewIds() {
+        val n = TestData.simpleNote("A", "alt")
+        val t = trashed(n)
+        val active = n.copy(title = "aktiv")
+        ok(repo.save(active))
+        val newId = repo.restoreFromTrash(t.entryName).valueOrNull()!!
+        assertTrue(newId != n.id)
+        assertEquals("aktiv", repo.load(n.id).valueOrNull()!!.title) // nicht überschrieben
+        val restored = repo.load(newId).valueOrNull()!!
+        assertEquals("alt", restored.title)
+        assertEquals("A", restored.folderPath)
+        assertTrue(restored.pageIds.none { it in n.pageIds })
+        assertEquals(2, repo.list("A").valueOrNull()!!.size)
+        assertEquals(0, repo.trashCount())
+    }
+
+    @Test
+    fun restoreOfDuplicateTrashEntriesRestoresBoth() {
+        val n = TestData.simpleNote("", "d")
+        ok(repo.save(n))
+        ok(repo.delete(n.id))
+        ok(repo.save(n.copy(title = "d2")))
+        ok(repo.delete(n.id))
+        repo.listTrash().valueOrNull()!!.forEach { ok(repo.restoreFromTrash(it.entryName)) }
+        assertEquals(setOf("d", "d2"), repo.list("").valueOrNull()!!.map { it.title }.toSet())
+        assertEquals(0, repo.trashCount())
+    }
+
+    @Test
+    fun restoreRejectsCorruptEntryAndKeepsFile() {
+        trashed(TestData.simpleNote())
+        val name = "${TestData.uuid()}.pnote"
+        File(root, ".trash/$name").writeBytes(ByteArray(50) { 3 })
+        assertTrue(repo.restoreFromTrash(name).errorOrNull() != null)
+        assertTrue(File(root, ".trash/$name").isFile)
+        assertEquals(0, repo.list("").valueOrNull()!!.size)
+    }
+
+    @Test
+    fun deleteFromTrashRemovesOnlyThatEntry() {
+        val a = trashed(TestData.simpleNote("", "a"))
+        val b = trashed(TestData.simpleNote("", "b"))
+        ok(repo.deleteFromTrash(a.entryName))
+        assertFalse(File(root, ".trash/${a.entryName}").exists())
+        assertTrue(File(root, ".trash/${b.entryName}").isFile)
+        assertEquals(listOf("b"), repo.listTrash().valueOrNull()!!.map { it.title })
+        assertEquals(PnoteError.NotFound, repo.deleteFromTrash(a.entryName).errorOrNull())
+    }
+
+    @Test
+    fun emptyTrashRemovesNotesButNotForeignFiles() {
+        trashed(TestData.simpleNote("", "a"))
+        trashed(TestData.simpleNote("X", "b"))
+        val corrupt = File(root, ".trash/${TestData.uuid()}.pnote").apply { writeBytes(ByteArray(50) { 3 }) }
+        val foreign = File(root, ".trash/readme.txt").apply { writeText("hallo") }
+        val active = TestData.simpleNote("", "aktiv")
+        ok(repo.save(active))
+        assertEquals(3, repo.emptyTrash().valueOrNull())
+        assertEquals(0, repo.trashCount())
+        assertFalse(corrupt.exists())
+        assertEquals("hallo", foreign.readText())
+        assertEquals(active, repo.load(active.id).valueOrNull())
+        assertEquals(0, repo.emptyTrash().valueOrNull())
+    }
+
+    @Test
+    fun emptyTrashWithoutTrashDirIsOk() {
+        assertEquals(0, repo.emptyTrash().valueOrNull())
+    }
+
+    @Test
+    fun trashOperationsRejectPathAttacks() {
+        val t = trashed(TestData.simpleNote("", "sicher"))
+        val outside = File(tmp.root, "outside.pnote").apply { writeText("draußen") }
+        val sibling = File(root, "${TestData.uuid()}.pnote").also {
+            PnoteCodec.write(TestData.simpleNote("", "aktiv"), it)
+        }
+        val evil = listOf(
+            "../outside.pnote", "../../outside.pnote", "..", ".", "", "/abs.pnote", "a/b.pnote",
+            "..\\${t.entryName}", "../${sibling.name}", ".trash/${t.entryName}", "${t.id}/../${t.entryName}",
+            t.entryName + "/", t.entryName + "\u0000", t.id, "${t.id}.pnote.tmp", "%2e%2e/${t.entryName}",
+            t.entryName.uppercase(),
+        )
+        for (name in evil) {
+            assertEquals("restore $name", PnoteError.InvalidId, repo.restoreFromTrash(name).errorOrNull())
+            assertEquals("delete $name", PnoteError.InvalidId, repo.deleteFromTrash(name).errorOrNull())
+        }
+        assertEquals("draußen", outside.readText())
+        assertTrue(sibling.isFile)
+        assertEquals(1, repo.trashCount())
+        assertEquals(listOf("notes", "outside.pnote"), tmp.root.list()!!.sorted())
+    }
+
+    @Test
+    fun trashSymlinkIsNotFollowed() {
+        val n = TestData.simpleNote("", "x")
+        ok(repo.save(n))
+        ok(repo.delete(n.id))
+        val real = File(root, ".trash")
+        val moved = File(tmp.root, "fremdtrash")
+        assertTrue(real.renameTo(moved))
+        try {
+            java.nio.file.Files.createSymbolicLink(real.toPath(), moved.toPath())
+        } catch (e: Exception) {
+            return // Plattform ohne Symlinks
+        }
+        assertEquals(0, repo.listTrash().valueOrNull()!!.size)
+        assertEquals(0, repo.trashCount())
+        assertEquals(PnoteError.InvalidId, repo.restoreFromTrash("${n.id}.pnote").errorOrNull())
+        assertEquals(PnoteError.InvalidId, repo.deleteFromTrash("${n.id}.pnote").errorOrNull())
+        assertEquals(0, repo.emptyTrash().valueOrNull())
+        assertTrue(File(moved, "${n.id}.pnote").isFile)
+    }
+
+    // ---------------------------------------------------------------- Ordner samt Inhalt löschen / verschieben
+
+    @Test
+    fun deleteFolderWithContentsTrashesAllNotesAndRemovesTree() {
+        val a = TestData.simpleNote("F", "a")
+        val b = TestData.simpleNote("F/Tief/Tiefer", "b")
+        val c = TestData.simpleNote("Anderer", "c")
+        ok(repo.save(a))
+        ok(repo.save(b))
+        ok(repo.save(c))
+        ok(repo.createFolder("F/Leer"))
+        ok(repo.deleteFolderWithContents("F"))
+        assertFalse(File(root, "F").exists())
+        assertEquals(setOf(a.id, b.id), repo.listTrash().valueOrNull()!!.map { it.id }.toSet())
+        assertEquals("F/Tief/Tiefer", repo.listTrash().valueOrNull()!!.first { it.id == b.id }.folderPath)
+        assertEquals(listOf("c"), repo.list("Anderer").valueOrNull()!!.map { it.title })
+        // aus dem Papierkorb wiederherstellbar
+        ok(repo.restoreFromTrash("${b.id}.pnote"))
+        assertEquals("F/Tief/Tiefer", repo.load(b.id).valueOrNull()!!.folderPath)
+    }
+
+    @Test
+    fun deleteFolderWithContentsOnEmptyFolderAndErrors() {
+        ok(repo.createFolder("Leer"))
+        ok(repo.deleteFolderWithContents("Leer"))
+        assertFalse(File(root, "Leer").exists())
+        assertEquals(PnoteError.NotFound, repo.deleteFolderWithContents("Leer").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.deleteFolderWithContents("").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.deleteFolderWithContents("../x").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.deleteFolderWithContents(".trash").errorOrNull())
+    }
+
+    @Test
+    fun deleteFolderWithContentsKeepsForeignFilesAndReportsNotEmpty() {
+        val n = TestData.simpleNote("F", "n")
+        ok(repo.save(n))
+        File(root, "F/readme.txt").writeText("meins")
+        assertEquals(PnoteError.NotEmpty, repo.deleteFolderWithContents("F").errorOrNull())
+        assertEquals("meins", File(root, "F/readme.txt").readText())
+        assertEquals(1, repo.trashCount()) // Notiz ist trotzdem im Papierkorb
+    }
+
+    @Test
+    fun deleteFolderWithContentsDoesNotFollowSymlinks() {
+        val outside = tmp.newFolder("draussen")
+        val foreign = File(outside, "${TestData.uuid()}.pnote")
+        foreign.writeText("fremd")
+        ok(repo.createFolder("F"))
+        try {
+            java.nio.file.Files.createSymbolicLink(File(root, "F/Link").toPath(), outside.toPath())
+        } catch (e: Exception) {
+            return // Plattform ohne Symlinks
+        }
+        assertEquals(PnoteError.NotEmpty, repo.deleteFolderWithContents("F").errorOrNull())
+        assertTrue(foreign.isFile)
+        assertEquals("fremd", foreign.readText())
+    }
+
+    @Test
+    fun moveFolderMovesContentAndUpdatesManifests() {
+        val a = TestData.simpleNote("Quelle", "a")
+        val b = TestData.simpleNote("Quelle/Sub", "b")
+        ok(repo.save(a))
+        ok(repo.save(b))
+        ok(repo.createFolder("Ziel"))
+        ok(repo.moveFolder("Quelle", "Ziel"))
+        assertFalse(File(root, "Quelle").exists())
+        assertTrue(File(root, "Ziel/Quelle/${a.id}.pnote").isFile)
+        assertEquals("Ziel/Quelle", repo.load(a.id).valueOrNull()!!.folderPath)
+        assertEquals("Ziel/Quelle/Sub", repo.load(b.id).valueOrNull()!!.folderPath)
+    }
+
+    @Test
+    fun moveFolderToRootAndSameParent() {
+        val n = TestData.simpleNote("A/B", "n")
+        ok(repo.save(n))
+        ok(repo.moveFolder("A/B", "A")) // liegt schon dort: nichts passiert
+        assertEquals("A/B", repo.load(n.id).valueOrNull()!!.folderPath)
+        ok(repo.moveFolder("A/B", ""))
+        assertEquals("B", repo.load(n.id).valueOrNull()!!.folderPath)
+        assertTrue(File(root, "A").isDirectory)
+    }
+
+    @Test
+    fun moveFolderRejectsSelfDescendantsAndInvalid() {
+        ok(repo.save(TestData.simpleNote("A/B/C", "n")))
+        assertEquals(PnoteError.InvalidFolder, repo.moveFolder("A", "A").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.moveFolder("A", "A/B").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.moveFolder("A", "A/B/C").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.moveFolder("", "A").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.moveFolder("A", "../x").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.moveFolder("../A", "").errorOrNull())
+        assertEquals(PnoteError.InvalidFolder, repo.moveFolder(".trash", "A").errorOrNull())
+        assertEquals(PnoteError.NotFound, repo.moveFolder("Gibt es nicht", "A").errorOrNull())
+        assertTrue(File(root, "A/B/C").isDirectory)
+    }
+
+    @Test
+    fun moveFolderPrefixSiblingIsNotADescendant() {
+        ok(repo.save(TestData.simpleNote("A", "n")))
+        ok(repo.createFolder("AB"))
+        ok(repo.moveFolder("A", "AB")) // "AB" beginnt mit "A", ist aber kein Unterordner
+        assertTrue(File(root, "AB/A").isDirectory)
+    }
+
+    @Test
+    fun moveFolderRejectsExistingNameAndDepthLimit() {
+        ok(repo.createFolder("X/Gleich"))
+        ok(repo.createFolder("Gleich"))
+        assertEquals(PnoteError.AlreadyExists, repo.moveFolder("Gleich", "X").errorOrNull())
+        assertTrue(File(root, "Gleich").isDirectory)
+        val deep = (1..16).joinToString("/") { "e$it" }
+        ok(repo.createFolder(deep))
+        ok(repo.createFolder("Quelle/Unter"))
+        assertEquals(PnoteError.LimitExceeded, repo.moveFolder("Quelle", deep).errorOrNull())
+        assertTrue(File(root, "Quelle/Unter").isDirectory)
+    }
 }

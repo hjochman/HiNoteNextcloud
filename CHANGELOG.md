@@ -7,7 +7,16 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-06
+
 ### Hinzugefügt
+- Phase 2b: Papierkorb-API im `NoteRepository` (Einträge auflisten, wiederherstellen, endgültig löschen, Papierkorb leeren) und `TrashActivity` (Papierkorb-Ansicht mit Wiederherstellen und endgültigem Löschen, seitenweise Anzeige; `TrashEntryText`, `TrashPaging`)
+- Auswahlmodus der Startseite („Notizen auswählen“ im Menü `⋮`) mit gemeinsamer Auswahl von Notizen und Ordnern, Auswahlkästchen auf Kacheln und Zeilen, „Alle auswählen“ sowie den Sammelaktionen Teilen (`ACTION_SEND_MULTIPLE` über `FileProvider`), Verschieben (`moveFolder`, Ordner nicht in sich selbst) und Löschen (Notizen in den Papierkorb, Ordner samt Inhalt über `deleteFolderWithContents`); reine Logik in `SelectionState` und `SelectionActions`
+- `SettingsActivity` (Einstellungen: Speicherort, Papierkorb leeren/ansehen, Version, Info)
+- `AboutActivity` (Über-Seite mit Logo, Version, Kasten „Neu in Version“, Beschreibung, Lizenzhinweis und GitHub-Link); erscheint beim ersten Start nach Installation und nach jedem Update mit geänderter `versionName` automatisch einmal (`AboutPolicy.shouldShowAbout`, Preference `about_last_seen_version`)
+- `LICENSE` (GPL-3.0-or-later) und `README.md` mit Abschnitt „Lizenz“
+- `EinkDialog` (Bestätigungsdialog nach E-Ink-Regeln) und `NoteSharing` (Teilen per `FileProvider`)
+- Neue JUnit-Tests (u. a. `SelectionState`, `SelectionActions`, `AboutPolicy`, Papierkorb, Repository-Erweiterungen); insgesamt 219 Tests
 - Startseite nach HiNote-Vorbild (ersetzt die provisorische `MainActivity`): Kopfbereich mit Überschrift („Alle Notizen“/Ordnername), Zurück-Pfeil im Ordner und Anzahl per Plurals; Neu-Menü (Notiz/Ordner), Suche in allen Titeln, Raster/Liste umschaltbar (gemerkt in SharedPreferences), Menü `⋮` („Neuer Ordner“); Ordnerkacheln mit Umriss und bis zu 4 Mini-Vorschauen, Ordneransicht mit 4 Spalten (6 im Querformat) und Kachel „+ Kurznotiz“; Notizkarten mit Vorschau, Titel (2 Zeilen), Datum, Favoritenstern und Menü
 - Seitenwechsel statt Scrollen (Leiste „Vorherige/Nächste Seite“, Seitenzahl, ausgegraut an den Grenzen); Kacheln je Seite ergeben sich aus Höhe des Inhaltsbereichs und Zeilenhöhe (`Pagination`, `GridMetrics`, `HomeModel`)
 - Notizmenü: Umbenennen, Favorit, Oben fixieren, Kopieren, Verschieben, Teilen (Share-Intent mit `.pnote` über `FileProvider`, Kopie nur in `cacheDir/share`), Exportieren (ausgegraut, Phase 6), Löschen in den Papierkorb mit Bestätigung; Ordnermenü: Umbenennen, Löschen (nur leere Ordner)

@@ -56,6 +56,50 @@
         <item name="android:focusable">true</item>
     </style>
 
+    <!-- Aktion der Auswahlleiste: Symbol über Beschriftung, deaktiviert grau, kein Ripple. -->
+    <style name="Widget.PaperNotes.SelectionAction" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">64dp</item>
+        <item name="android:minWidth">72dp</item>
+        <item name="android:background">@drawable/bg_tool</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:drawablePadding">2dp</item>
+        <item name="android:drawableTint">@color/icon_tint</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/text_tint</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <!-- Einstellungen: Zeile mit festem großem Touch-Ziel (mindestens 72dp). -->
+    <style name="Widget.PaperNotes.SettingsRow" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">72dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingStart">24dp</item>
+        <item name="android:paddingEnd">24dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+
+    <style name="Widget.PaperNotes.SettingsLabel" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_tint</item>
+        <item name="android:textSize">20sp</item>
+    </style>
+
+    <style name="Widget.PaperNotes.SettingsValue" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
     <style name="Widget.PaperNotes.Divider" parent="">
         <item name="android:layout_width">1dp</item>
         <item name="android:layout_height">28dp</item>

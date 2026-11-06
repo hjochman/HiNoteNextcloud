@@ -3,7 +3,6 @@ package local.papernotes
 import android.app.Activity
 import android.app.Dialog
 import android.content.ActivityNotFoundException
-import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -31,7 +30,7 @@ import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.FileProvider
+import local.papernotes.about.AboutActivity
 import local.papernotes.editor.EditorActivity
 import local.papernotes.home.DateLabels
 import local.papernotes.home.Entry
@@ -42,6 +41,10 @@ import local.papernotes.home.HomeTiles
 import local.papernotes.home.Pagination
 import local.papernotes.home.PreviewBinder
 import local.papernotes.home.PreviewLoader
+import local.papernotes.home.SelectionActions
+import local.papernotes.home.SelectionKey
+import local.papernotes.home.SelectionState
+import local.papernotes.home.selectionKey
 import local.papernotes.home.TileActions
 import local.papernotes.model.NoteFactory
 import local.papernotes.storage.FolderPath
@@ -52,9 +55,6 @@ import local.papernotes.storage.PnoteError
 import local.papernotes.storage.PnoteResult
 import local.papernotes.storage.NoteOrdering
 import local.papernotes.storage.SortOrder
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,6 +69,13 @@ import java.util.concurrent.Executors
 class MainActivity : Activity() {
     private val io: ExecutorService = Executors.newSingleThreadExecutor()
 
+    private lateinit var headerBar: View
+    private lateinit var selectionBar: View
+    private lateinit var textSelCount: TextView
+    private lateinit var textSelectAll: TextView
+    private lateinit var actionShare: View
+    private lateinit var actionMove: View
+    private lateinit var actionDelete: View
     private lateinit var buttonBack: ImageButton
     private lateinit var textTitle: TextView
     private lateinit var editSearch: EditText
@@ -103,6 +110,9 @@ class MainActivity : Activity() {
     private var layout: List<List<List<Int>>> = emptyList()
     private var permissionAsked = false
 
+    private val selection = SelectionState()
+    private var tiles: HomeTiles? = null
+
     /** [icon] = 0: kein Symbol, aber gleiche Einrückung (z. B. nicht gewählte Sortierung). */
     private class MenuEntry(val icon: Int, val label: String, val enabled: Boolean = true, val action: () -> Unit)
 
@@ -122,11 +132,28 @@ class MainActivity : Activity() {
         override fun noteMenu(anchor: View, note: NoteSummary) = showNoteMenu(anchor, note)
 
         override fun folderMenu(anchor: View, folder: FolderItem) = showFolderMenu(anchor, folder)
+
+        override val selecting: Boolean get() = selection.active
+
+        override fun isSelected(key: SelectionKey): Boolean = selection.isSelected(key)
+
+        override fun toggleSelection(key: SelectionKey): Boolean {
+            val selected = selection.toggle(key)
+            updateSelectionHeader()
+            return selected
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        headerBar = findViewById(R.id.headerBar)
+        selectionBar = findViewById(R.id.selectionBar)
+        textSelCount = findViewById(R.id.textSelCount)
+        textSelectAll = findViewById(R.id.actionSelectAll)
+        actionShare = findViewById(R.id.actionShare)
+        actionMove = findViewById(R.id.actionMove)
+        actionDelete = findViewById(R.id.actionDelete)
         buttonBack = findViewById(R.id.buttonBack)
         textTitle = findViewById(R.id.textTitle)
         editSearch = findViewById(R.id.editSearch)
@@ -150,6 +177,9 @@ class MainActivity : Activity() {
             page = savedInstanceState.getInt(STATE_PAGE, 0)
             searchMode = savedInstanceState.getBoolean(STATE_SEARCH, false)
             query = savedInstanceState.getString(STATE_QUERY, "").orEmpty().take(NoteRepository.MAX_QUERY_LENGTH)
+            if (savedInstanceState.getBoolean(STATE_SELECTING, false)) {
+                selection.restore(savedInstanceState.getStringArrayList(STATE_SELECTION).orEmpty())
+            }
         }
 
         editSearch.filters = arrayOf(InputFilter.LengthFilter(NoteRepository.MAX_QUERY_LENGTH))
@@ -177,6 +207,11 @@ class MainActivity : Activity() {
         buttonMore.setOnClickListener { showMoreMenu(it) }
         buttonSearch.setOnClickListener { if (searchMode) closeSearch() else openSearch() }
         buttonViewMode.setOnClickListener { toggleViewMode() }
+        findViewById<View>(R.id.buttonSelClose).setOnClickListener { endSelection() }
+        actionShare.setOnClickListener { shareSelection() }
+        actionMove.setOnClickListener { askMoveSelection() }
+        actionDelete.setOnClickListener { askDeleteSelection() }
+        textSelectAll.setOnClickListener { toggleSelectAll() }
         buttonPrevPage.setOnClickListener {
             page = Pagination.previous(page, layout.size)
             render()
@@ -190,6 +225,12 @@ class MainActivity : Activity() {
         }
         applySearchUi()
         updateViewModeButton()
+        applySelectionUi()
+
+        // Erster Start nach Installation oder Update: zuerst die Über-Seite (nicht bei Drehung/Wiederherstellung).
+        if (savedInstanceState == null && AboutActivity.shouldShowOnStart(this)) {
+            startActivity(Intent(this, AboutActivity::class.java))
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -198,6 +239,8 @@ class MainActivity : Activity() {
         outState.putInt(STATE_PAGE, page)
         outState.putBoolean(STATE_SEARCH, searchMode)
         outState.putString(STATE_QUERY, query)
+        outState.putBoolean(STATE_SELECTING, selection.active)
+        if (selection.active) outState.putStringArrayList(STATE_SELECTION, selection.encode())
     }
 
     override fun onResume() {
@@ -226,6 +269,7 @@ class MainActivity : Activity() {
     @Deprecated("Activity-API ohne AndroidX; hier bewusst genutzt.")
     override fun onBackPressed() {
         when {
+            selection.active -> endSelection()
             searchMode -> closeSearch()
             currentFolder.isNotEmpty() -> goUp()
             else -> @Suppress("DEPRECATION") super.onBackPressed()
@@ -258,6 +302,7 @@ class MainActivity : Activity() {
         val folder = currentFolder
         val order = sortOrder
         val q = if (searchMode) query else ""
+        val withNewTile = folder.isNotEmpty() && !selection.active // im Auswahlmodus gibt es die Kachel "+ Kurznotiz" nicht
         io.execute {
             var list: List<Entry>? = null
             var count = 0
@@ -268,7 +313,7 @@ class MainActivity : Activity() {
                 }
             } else {
                 (HomeModel.load(r, folder, order) as? PnoteResult.Ok)?.value?.let { c ->
-                    list = HomeModel.entries(c, folder.isNotEmpty())
+                    list = HomeModel.entries(c, withNewTile)
                     count = c.totalCount
                 }
             }
@@ -282,6 +327,7 @@ class MainActivity : Activity() {
                 } else {
                     entries = result
                     totalCount = count
+                    if (selection.active) selection.retainOnly(result.mapNotNull { it.selectionKey() })
                 }
                 emptyMessage = if (q.isNotEmpty()) R.string.search_empty else R.string.notes_empty
                 loaded = true
@@ -305,6 +351,7 @@ class MainActivity : Activity() {
         layout = HomeModel.pageLayout(entries, metrics, h)
         page = Pagination.clamp(page, layout.size)
         b.clear()
+        tiles = null
         pageRows.removeAllViews()
         if (entries.isEmpty()) {
             textEmpty.setText(emptyMessage)
@@ -314,10 +361,12 @@ class MainActivity : Activity() {
             val dates = DateLabels(Locale.getDefault(), TimeZone.getDefault(), System::currentTimeMillis) { loc, skeleton ->
                 android.text.format.DateFormat.getBestDateTimePattern(loc, skeleton)
             }
-            val tiles = HomeTiles(this, metrics, b, dates, tileActions)
-            layout[page].forEachIndexed { i, row -> pageRows.addView(tiles.buildRow(entries, row, i == 0)) }
+            val built = HomeTiles(this, metrics, b, dates, tileActions)
+            tiles = built
+            layout[page].forEachIndexed { i, row -> pageRows.addView(built.buildRow(entries, row, i == 0)) }
         }
         updatePager()
+        updateSelectionHeader()
     }
 
     /** Ohne Speicherzugriff gibt es keine Vorschau-Infrastruktur: nur die Meldung zeigen. */
@@ -346,6 +395,97 @@ class MainActivity : Activity() {
         currentFolder = HomeModel.parent(currentFolder)
         page = 0
         load()
+    }
+
+    // ---------------------------------------------------------------- Auswahlmodus
+
+    private fun startSelection() {
+        if (searchMode) hideKeyboard(editSearch)
+        selection.start()
+        applySelectionUi()
+        page = 0
+        load()
+    }
+
+    private fun endSelection() {
+        if (!selection.active) return
+        selection.end()
+        applySelectionUi()
+        page = 0
+        load()
+    }
+
+    /** Im Auswahlmodus ersetzt die Auswahlleiste den Kopfbereich. */
+    private fun applySelectionUi() {
+        headerBar.visibility = if (selection.active) View.GONE else View.VISIBLE
+        selectionBar.visibility = if (selection.active) View.VISIBLE else View.GONE
+        updateSelectionHeader()
+    }
+
+    private fun selectableKeys(): List<SelectionKey> = entries.mapNotNull { it.selectionKey() }
+
+    private fun updateSelectionHeader() {
+        if (!selection.active) return
+        val n = selection.count
+        textSelCount.text = resources.getQuantityString(R.plurals.selection_count, n, n)
+        actionShare.isEnabled = n > 0
+        actionMove.isEnabled = n > 0
+        actionDelete.isEnabled = n > 0
+        val keys = selectableKeys()
+        textSelectAll.setText(if (keys.isNotEmpty() && keys.all { selection.isSelected(it) }) R.string.select_none else R.string.select_all)
+    }
+
+    /** Wählt alle Einträge (auch auf anderen Seiten) oder hebt die Auswahl auf, wenn schon alle gewählt sind. */
+    private fun toggleSelectAll() {
+        val keys = selectableKeys()
+        if (keys.isEmpty()) return
+        if (keys.all { selection.isSelected(it) }) selection.selectAll(emptyList()) else selection.selectAll(keys)
+        tiles?.refreshChecks()
+        updateSelectionHeader()
+    }
+
+    private fun askDeleteSelection() {
+        val sel = selection.snapshot()
+        if (sel.noteIds.isEmpty() && sel.folderPaths.isEmpty()) return
+        val message = if (sel.folderPaths.isEmpty()) R.string.confirm_delete_selection_notes_message else R.string.confirm_delete_selection_message
+        openDialog(getString(R.string.confirm_delete_selection_title), getString(R.string.delete), {
+            endSelection()
+            sel.noteIds.forEach { loader?.forget(it) }
+            runRepo(onError = ::selectionError) { resultOf(SelectionActions.delete(it, sel)) }
+            true
+        }) { body ->
+            body.addView(messageText(getString(message)))
+        }
+    }
+
+    private fun askMoveSelection() {
+        val sel = selection.snapshot()
+        if (sel.noteIds.isEmpty() && sel.folderPaths.isEmpty()) return
+        // Ohne Suche liegen alle Einträge direkt im aktuellen Ordner: dorthin zu verschieben wäre wirkungslos.
+        pickFolder(disabled = { !sel.isValidMoveTarget(it) || (!searchMode && it == currentFolder) }) { target ->
+            endSelection()
+            runRepo(onError = ::selectionError) { resultOf(SelectionActions.move(it, sel, target)) }
+        }
+    }
+
+    private fun shareSelection() {
+        val r = repo ?: return
+        val sel = selection.snapshot()
+        if (sel.noteIds.isEmpty() && sel.folderPaths.isEmpty()) return
+        io.execute {
+            val notes = SelectionActions.notesToShare(r, sel)
+            runOnUiThread { if (!isDestroyed) shareNotes(r, notes) }
+        }
+    }
+
+    private fun resultOf(error: PnoteError?): PnoteResult<Unit> = if (error == null) PnoteResult.Ok(Unit) else PnoteResult.Err(error)
+
+    private fun selectionError(error: PnoteError): Int = when (error) {
+        PnoteError.InvalidFolder -> R.string.error_move_invalid
+        PnoteError.AlreadyExists -> R.string.error_folder_exists
+        PnoteError.LimitExceeded -> R.string.error_folder_too_deep
+        PnoteError.NotEmpty -> R.string.error_folder_foreign_files
+        else -> R.string.error_action_failed
     }
 
     // ---------------------------------------------------------------- Suche und Ansicht
@@ -410,7 +550,10 @@ class MainActivity : Activity() {
         anchor,
         listOf(
             MenuEntry(R.drawable.ic_folder_add, getString(R.string.new_folder)) { askNewFolder() },
+            MenuEntry(R.drawable.ic_select_all, getString(R.string.menu_select_notes)) { startSelection() },
             MenuEntry(R.drawable.ic_sort, getString(R.string.sort_by)) { showSortMenu(anchor) },
+            MenuEntry(R.drawable.ic_settings, getString(R.string.menu_settings)) { startActivity(Intent(this, SettingsActivity::class.java)) },
+            MenuEntry(R.drawable.ic_info, getString(R.string.menu_about)) { startActivity(Intent(this, AboutActivity::class.java)) },
         ),
     )
 
@@ -636,20 +779,25 @@ class MainActivity : Activity() {
     }
 
     private fun askMoveNote(note: NoteSummary) {
+        pickFolder(disabled = { it == note.folderPath }) { path -> runRepo { it.move(note.id, path) } }
+    }
+
+    /** Zielordner-Dialog: lädt alle Ordner im Hintergrund; [disabled] markiert nicht wählbare Ziele ("" = oberste Ebene). */
+    private fun pickFolder(disabled: (String) -> Boolean, onPick: (String) -> Unit) {
         val r = repo ?: return
         io.execute {
             val folders = (r.listAllFolders() as? PnoteResult.Ok)?.value.orEmpty()
-            runOnUiThread { if (!isDestroyed) showMoveDialog(note, folders) }
+            runOnUiThread { if (!isDestroyed) showMoveDialog(folders, disabled, onPick) }
         }
     }
 
-    private fun showMoveDialog(note: NoteSummary, folders: List<String>) {
+    private fun showMoveDialog(folders: List<String>, disabled: (String) -> Boolean, onPick: (String) -> Unit) {
         val targets = listOf("") + folders
         var dialog: Dialog? = null
         dialog = openDialog(getString(R.string.dialog_move), null) { body ->
             val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             targets.forEach { path ->
-                val here = path == note.folderPath
+                val blocked = disabled(path)
                 list.addView(
                     TextView(this).apply {
                         text = if (path.isEmpty()) getString(R.string.home_all_notes) else path
@@ -660,13 +808,13 @@ class MainActivity : Activity() {
                         maxLines = 1
                         ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
                         background = getDrawable(R.drawable.bg_tool)
-                        isEnabled = !here
-                        isClickable = !here
-                        isFocusable = !here
-                        if (!here) {
+                        isEnabled = !blocked
+                        isClickable = !blocked
+                        isFocusable = !blocked
+                        if (!blocked) {
                             setOnClickListener {
                                 dialog?.dismiss()
-                                runRepo { it.move(note.id, path) }
+                                onPick(path)
                             }
                         }
                     },
@@ -686,48 +834,32 @@ class MainActivity : Activity() {
 
     private fun shareNote(note: NoteSummary) {
         val r = repo ?: return
+        shareNotes(r, listOf(note))
+    }
+
+    /** Teilt die Dateien der [notes] (eine per ACTION_SEND, mehrere per ACTION_SEND_MULTIPLE). Kopieren läuft im Hintergrund. */
+    private fun shareNotes(r: NoteRepository, notes: List<NoteSummary>) {
+        if (notes.isEmpty()) {
+            toast(R.string.share_nothing)
+            return
+        }
         io.execute {
-            val shared = prepareShareFile(r, note)
+            val files = NoteSharing.prepareFiles(cacheDir, r, notes)
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
-                if (shared == null) {
+                if (files == null) {
                     toast(R.string.error_share)
                     return@runOnUiThread
                 }
                 try {
-                    val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", shared)
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/octet-stream"
-                        putExtra(Intent.EXTRA_STREAM, uri)
-                        clipData = ClipData.newRawUri("", uri)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    val chooser = Intent.createChooser(send, getString(R.string.share_chooser))
-                    chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    startActivity(chooser)
+                    val title = getString(if (files.size == 1) R.string.share_chooser else R.string.share_chooser_multi)
+                    startActivity(NoteSharing.chooserIntent(this, files, title))
                 } catch (e: ActivityNotFoundException) {
                     toast(R.string.error_share)
                 } catch (e: IllegalArgumentException) {
                     toast(R.string.error_share)
                 }
             }
-        }
-    }
-
-    /** Kopiert die Notizdatei mit unbedenklichem Dateinamen nach `cacheDir/share`; frühere Kopien werden entfernt. */
-    private fun prepareShareFile(r: NoteRepository, note: NoteSummary): File? {
-        val source = r.noteFile(note.id) ?: return null
-        val dir = File(cacheDir, "share")
-        if (!dir.isDirectory && !dir.mkdirs()) return null
-        dir.listFiles()?.forEach { it.delete() }
-        val base = note.title.map { if (it.isLetterOrDigit() || it == ' ' || it == '-' || it == '_') it else '_' }
-            .joinToString("").trim().take(50).ifEmpty { "note" }
-        val target = File(dir, "$base.pnote")
-        return try {
-            Files.copy(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            target
-        } catch (e: java.io.IOException) {
-            null
         }
     }
 
@@ -857,5 +989,7 @@ class MainActivity : Activity() {
         const val STATE_PAGE = "page"
         const val STATE_SEARCH = "search"
         const val STATE_QUERY = "query"
+        const val STATE_SELECTING = "selecting"
+        const val STATE_SELECTION = "selection"
     }
 }

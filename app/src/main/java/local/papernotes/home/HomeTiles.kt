@@ -25,6 +25,13 @@ internal interface TileActions {
     fun newQuickNote()
     fun noteMenu(anchor: View, note: NoteSummary)
     fun folderMenu(anchor: View, folder: FolderItem)
+
+    /** Auswahlmodus: Kacheln zeigen ein Auswahlkästchen, ein Tipp setzt oder löst den Haken und öffnet nichts. */
+    val selecting: Boolean
+    fun isSelected(key: SelectionKey): Boolean
+
+    /** Kehrt den Haken um und liefert den neuen Zustand. */
+    fun toggleSelection(key: SelectionKey): Boolean
 }
 
 /** Vorschau einer Seite: oben bündig und auf Breite skaliert, weißer Grund, Rand kommt vom Hintergrund-Drawable. */
@@ -88,6 +95,19 @@ internal class HomeTiles(
 
     private fun dp(v: Float) = Math.round(v * density)
 
+    /** Aktualisierer der Kästchen je Auswahlschlüssel (ein Eintrag kann nur einmal pro Seite vorkommen). */
+    private val boxes = HashMap<SelectionKey, MutableList<(Boolean) -> Unit>>()
+
+    /** Setzt die Kästchen von [key] auf [selected] (nach einem Tipp oder "Alle auswählen"). */
+    fun setChecked(key: SelectionKey, selected: Boolean) {
+        boxes[key]?.forEach { it(selected) }
+    }
+
+    /** Setzt alle Kästchen der aktuellen Seite gemäß [actions]. */
+    fun refreshChecks() {
+        boxes.forEach { (key, list) -> list.forEach { it(actions.isSelected(key)) } }
+    }
+
     fun buildRow(entries: List<Entry>, indices: List<Int>, first: Boolean): View {
         val containsFolder = indices.any { entries[it] is Entry.Folder }
         val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
@@ -116,7 +136,8 @@ internal class HomeTiles(
     // ---------------------------------------------------------------- Raster
 
     private fun noteTile(note: NoteSummary): View {
-        val tile = clickableColumn { actions.openNote(note.id) }
+        val key = SelectionKey.Note(note.id)
+        val tile = clickableColumn(key) { actions.openNote(note.id) }
         val frame = FrameLayout(context)
         val preview = PreviewView(context).apply {
             background = context.getDrawable(R.drawable.bg_preview)
@@ -125,6 +146,7 @@ internal class HomeTiles(
         binder.bind(preview, note.id, note.modified)
         frame.addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         if (note.favorite) frame.addView(starBadge(), badgeParams())
+        if (actions.selecting) frame.addView(checkBox(key), checkBoxParams())
         tile.addView(frame, LinearLayout.LayoutParams(m.tileWidth, m.previewHeight))
         tile.addView(
             textRow(m.tileWidth, note.title, dates.format(note.modified), context.getString(R.string.note_menu_desc)) { actions.noteMenu(it, note) },
@@ -133,7 +155,8 @@ internal class HomeTiles(
     }
 
     private fun folderTile(folder: FolderItem): View {
-        val tile = clickableColumn { actions.openFolder(folder.path) }
+        val key = SelectionKey.Folder(folder.path)
+        val tile = clickableColumn(key) { actions.openFolder(folder.path) }
         val box = FrameLayout(context)
         box.addView(
             FolderOutlineView(context).also { it.tabHeight = m.folderTabHeight },
@@ -160,6 +183,7 @@ internal class HomeTiles(
                 it.topMargin = m.folderTabHeight + m.folderInnerPadding
             },
         )
+        if (actions.selecting) box.addView(checkBox(key), checkBoxParams())
         tile.addView(box, LinearLayout.LayoutParams(m.folderWidth, m.folderBoxHeight))
         val label = res.getQuantityString(R.plurals.folder_label, folder.noteCount, folder.name, folder.noteCount)
         val date = if (folder.modified > 0) dates.format(folder.modified) else ""
@@ -168,7 +192,7 @@ internal class HomeTiles(
     }
 
     private fun newTile(): View {
-        val tile = clickableColumn { actions.newQuickNote() }
+        val tile = clickableColumn(null) { actions.newQuickNote() }
         val frame = FrameLayout(context).apply { background = context.getDrawable(R.drawable.bg_preview) }
         frame.addView(
             ImageView(context).apply {
@@ -199,7 +223,7 @@ internal class HomeTiles(
         column.addView(text(14f, black, 2).apply { text = title })
         if (date.isNotEmpty()) column.addView(text(12f, gray, 1).apply { text = date })
         row.addView(column, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        row.addView(menuButton(menuDescription, onMenu), FrameLayout.LayoutParams(dp(48f), dp(48f), Gravity.TOP or Gravity.END))
+        if (!actions.selecting) row.addView(menuButton(menuDescription, onMenu), FrameLayout.LayoutParams(dp(48f), dp(48f), Gravity.TOP or Gravity.END))
         row.layoutParams = LinearLayout.LayoutParams(width, m.textHeight)
         return row
     }
@@ -215,11 +239,12 @@ internal class HomeTiles(
             isFocusable = true
             setPadding(dp(24f), 0, dp(8f), 0)
         }
+        val key: SelectionKey? = entry.selectionKey()
         val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         when (entry) {
             is Entry.Note -> {
                 val n = entry.summary
-                row.setOnClickListener { actions.openNote(n.id) }
+                row.setOnClickListener { tap(key) { actions.openNote(n.id) } }
                 val pv = PreviewView(context).apply { background = context.getDrawable(R.drawable.bg_preview) }
                 binder.bind(pv, n.id, n.modified)
                 row.addView(pv, LinearLayout.LayoutParams(m.listPreviewWidth, m.listPreviewHeight).also { it.marginEnd = dp(16f) })
@@ -227,11 +252,11 @@ internal class HomeTiles(
                 texts.addView(text(14f, gray, 1).apply { text = dates.format(n.modified) })
                 row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 if (n.favorite) row.addView(starBadge(), LinearLayout.LayoutParams(dp(24f), dp(24f)).also { it.marginEnd = dp(8f) })
-                row.addView(menuButton(context.getString(R.string.note_menu_desc)) { actions.noteMenu(it, n) }, LinearLayout.LayoutParams(dp(48f), dp(48f)))
+                if (actions.selecting) addListCheckBox(row, key!!) else row.addView(menuButton(context.getString(R.string.note_menu_desc)) { actions.noteMenu(it, n) }, LinearLayout.LayoutParams(dp(48f), dp(48f)))
             }
             is Entry.Folder -> {
                 val f = entry.item
-                row.setOnClickListener { actions.openFolder(f.path) }
+                row.setOnClickListener { tap(key) { actions.openFolder(f.path) } }
                 row.addView(
                     ImageView(context).apply {
                         setImageResource(R.drawable.ic_folder)
@@ -242,7 +267,7 @@ internal class HomeTiles(
                 texts.addView(text(16f, black, 2).apply { text = res.getQuantityString(R.plurals.folder_label, f.noteCount, f.name, f.noteCount) })
                 if (f.modified > 0) texts.addView(text(14f, gray, 1).apply { text = dates.format(f.modified) })
                 row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                row.addView(menuButton(context.getString(R.string.folder_menu_desc)) { actions.folderMenu(it, f) }, LinearLayout.LayoutParams(dp(48f), dp(48f)))
+                if (actions.selecting) addListCheckBox(row, key!!) else row.addView(menuButton(context.getString(R.string.folder_menu_desc)) { actions.folderMenu(it, f) }, LinearLayout.LayoutParams(dp(48f), dp(48f)))
             }
             Entry.NewNote -> {
                 row.setOnClickListener { actions.newQuickNote() }
@@ -265,11 +290,43 @@ internal class HomeTiles(
 
     // ---------------------------------------------------------------- Bausteine
 
-    private fun clickableColumn(onClick: () -> Unit) = LinearLayout(context).apply {
+    /** Im Auswahlmodus setzt oder löst ein Tipp den Haken von [key], sonst läuft [onClick]. */
+    private fun tap(key: SelectionKey?, onClick: () -> Unit) {
+        if (!actions.selecting) onClick() else if (key != null) setChecked(key, actions.toggleSelection(key))
+    }
+
+    private fun clickableColumn(key: SelectionKey?, onClick: () -> Unit) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         isClickable = true
         isFocusable = true
-        setOnClickListener { onClick() }
+        setOnClickListener { tap(key, onClick) }
+    }
+
+    /**
+     * Auswahlkästchen. Ein Tipp auf die Kachel ändert nur dieses Symbol (kein Neuaufbau der Seite, wenig E-Ink-Flackern);
+     * der Rückruf aktualisiert die Kopfzeile.
+     */
+    private fun checkBox(key: SelectionKey) = ImageView(context).apply {
+        fun show(selected: Boolean) {
+            setImageResource(if (selected) R.drawable.ic_check_box else R.drawable.ic_check_box_outline)
+            contentDescription = if (selected) context.getString(R.string.sort_selected) else null
+        }
+        show(actions.isSelected(key))
+        boxes.getOrPut(key) { ArrayList() }.add(::show)
+    }
+
+    private fun checkBoxParams() = FrameLayout.LayoutParams(dp(32f), dp(32f), Gravity.BOTTOM or Gravity.END).also {
+        it.setMargins(0, 0, dp(6f), dp(6f))
+    }
+
+    private fun addListCheckBox(row: LinearLayout, key: SelectionKey) {
+        row.addView(
+            checkBox(key),
+            LinearLayout.LayoutParams(dp(32f), dp(32f), 0f).also {
+                it.gravity = Gravity.BOTTOM
+                it.setMargins(0, 0, dp(12f), dp(10f))
+            },
+        )
     }
 
     private fun text(sizeSp: Float, color: Int, maxLines: Int) = TextView(context).apply {

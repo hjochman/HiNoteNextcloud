@@ -24,9 +24,12 @@ internal object NotesLocation {
             Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED
 
     /** Nur nach positivem [hasAccess] aufrufen. Legt den Ordner bei Bedarf an. */
-    fun root(@Suppress("UNUSED_PARAMETER") context: Context): File {
+    fun root(@Suppress("UNUSED_PARAMETER") context: Context): File = location().also { it.mkdirs() }
+
+    /** Der Speicherort ohne Zugriffsprüfung und ohne Anlegen, nur zur Anzeige (z. B. in den Einstellungen). */
+    fun location(): File {
         @Suppress("DEPRECATION") // Unter API 29 mit Legacy-Zugriff der vorgesehene Weg.
         val documents = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        return File(documents, FOLDER_NAME).also { it.mkdirs() }
+        return File(documents, FOLDER_NAME)
     }
 }

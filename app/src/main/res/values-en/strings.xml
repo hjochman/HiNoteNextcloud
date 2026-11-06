@@ -29,6 +29,22 @@
     <string name="sort_title_desc">Title Z–A</string>
     <string name="sort_selected">Selected</string>
 
+    <string name="menu_select_notes">Select notes</string>
+    <plurals name="selection_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <string name="selection_end">End selection</string>
+    <string name="select_all">Select all</string>
+    <string name="select_none">Clear selection</string>
+    <string name="confirm_delete_selection_title">Delete selection?</string>
+    <string name="confirm_delete_selection_message">The selected notes will be moved to the trash. Selected folders will be deleted together with all notes inside.</string>
+    <string name="confirm_delete_selection_notes_message">The selected notes will be moved to the trash.</string>
+    <string name="share_chooser_multi">Share notes</string>
+    <string name="share_nothing">No notes to share.</string>
+    <string name="error_move_invalid">A folder cannot be moved into itself or one of its subfolders.</string>
+    <string name="error_folder_too_deep">Too many nested folders.</string>
+    <string name="error_folder_foreign_files">A folder contains files that are not notes and will be kept.</string>
     <string name="page_of">%1$d/%2$d</string>
     <string name="note_menu_desc">Note menu</string>
     <string name="folder_menu_desc">Folder menu</string>
@@ -156,4 +172,46 @@
     <string name="tl_cues">Cues</string>
     <string name="tl_summary">Summary</string>
     <string name="tl_topic">Topic</string>
+
+    <string name="menu_settings">Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_location">Storage location</string>
+    <string name="settings_trash">Trash</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_about">About</string>
+    <string name="trash_empty_action">Empty trash</string>
+    <string name="trash_empty_title">Empty trash?</string>
+    <string name="trash_empty_message">All notes in the trash will be permanently deleted. This cannot be undone.</string>
+    <string name="trash_empty_confirm">Empty</string>
+    <string name="trash_empty_state">The trash is empty</string>
+    <string name="trash_restore">Restore</string>
+    <string name="trash_delete_forever">Delete permanently</string>
+    <string name="trash_delete_title">Delete permanently?</string>
+    <string name="trash_delete_message">“%1$s” will be permanently deleted. This cannot be undone.</string>
+    <string name="trash_deleted_format">deleted %1$s</string>
+    <plurals name="trash_pages">
+        <item quantity="one">%d page</item>
+        <item quantity="other">%d pages</item>
+    </plurals>
+
+    <!--
+      About page. MAINTENANCE: update about_news_title/about_news_items ("What's new") and about_description on EVERY version
+      change (file VERSION) in this file AND in values/strings.xml; after an update the page opens once automatically.
+    -->
+    <string name="menu_about">About</string>
+    <string name="about_title">About</string>
+    <string name="about_version_format">Version %1$s</string>
+    <string name="about_news_title">New in version %1$s</string>
+    <string name="about_bullet_format">• %1$s</string>
+    <string-array name="about_news_items">
+        <item>Multi-select with share, move and delete</item>
+        <item>Trash view: restore and delete permanently</item>
+        <item>Settings</item>
+        <item>About page</item>
+    </string-array>
+    <string name="about_description">PaperNotes by BOB is a note-taking app for handwritten notes on the Huawei Paper (E-Ink). Notes are stored as files in the Documents/PaperNotes folder and can be organized in folders, shared and restored from the trash.</string>
+    <string name="about_license">Free software under the GNU General Public License v3.0 or later. Copyright © 2025 hjochman. This program is distributed without any warranty.</string>
+    <string name="about_source">Source code on GitHub</string>
+    <string name="about_close">Close</string>
+    <string name="about_no_browser">No browser found.</string>
 </resources>

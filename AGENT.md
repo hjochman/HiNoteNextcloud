@@ -18,7 +18,10 @@ PaperNotes/
 │   │       ├── model/    – reine Kotlin-Datenklassen (Point, Stroke, Page, Note, NoteFactory), kein Android-Bezug
 │   │       ├── storage/  – PnoteCodec (.pnote ZIP+JSON), NoteRepository (Ordner, .trash), FolderPath, PnoteResult/PnoteError
 │   │       ├── editor/   – PageHistory + NoteSession + EditorToolState + PenCatalog (reine Logik, JVM-Tests; PenCatalog = einzige Tabelle der Stifttypen); TrackMapper, PageCanvasView (einzige Berührung mit HWEditView), PageBackgroundView/TemplateRenderer, TemplateCatalog (einzige Tabelle der Vorlagen) + TemplateDialog + `templates/` (TemplateGeometry = reine Geometrie, ShapeTemplateRenderer, TemplateThumbnails), EditorActivity (Kopf-/Werkzeug-/Unterleiste mit fester Höhe über der Schreibfläche; Layout `res/layout/activity_editor.xml`, Symbole `res/drawable/ic_*.xml`)
-│   │       ├── MainActivity.kt – provisorische Notizliste (wird ersetzt); NotesLocation.kt – Speicherort `Documents/PaperNotes` (gemeinsamer Speicher, `WRITE_EXTERNAL_STORAGE` + `requestLegacyExternalStorage`, targetSdk 29)
+│   │       ├── home/     – Startseite-Logik: HomeModel, Pagination, GridMetrics, DateLabels, PreviewLoader/-Cache/-Renderer, HomeTiles, SelectionState + SelectionActions (Mehrfachauswahl; reine Logik mit JVM-Tests)
+│   │       ├── trash/    – TrashActivity (Papierkorb-Ansicht: wiederherstellen, endgültig löschen) + TrashEntryText/TrashPaging (reine Logik)
+│   │       ├── about/    – AboutActivity (Über-Seite, nicht exportiert; Logo `res/drawable-nodpi/ic_launcher_art.png`, Texte in strings.xml unter "Über-Seite") + AboutPolicy (`shouldShowAbout`, reine Logik, JVM-Test)
+│   │       ├── MainActivity.kt – Startseite (Raster/Liste, Suche, Menü ⋮, Auswahlmodus; öffnet beim ersten Start nach Installation/Update die Über-Seite); SettingsActivity.kt – Einstellungen (Speicherort, Papierkorb, Version, Info); NoteSharing.kt – Teilen per FileProvider; EinkDialog.kt – Bestätigungsdialog; NotesLocation.kt – Speicherort `Documents/PaperNotes` (gemeinsamer Speicher, `WRITE_EXTERNAL_STORAGE` + `requestLegacyExternalStorage`, targetSdk 29)
 │   └── src/test/java/    – JVM-Tests (JUnit 4, `./gradlew test`)
 ├── eink-stub/            – Compile-Only-Stub für android.eink.* (Namespace local.papernotes.einkstub)
 │   └── src/main/java/    – Stub-Signaturen (wird NIE in die fertige APK gepackt)
@@ -73,7 +76,7 @@ Bei jeder Versionsänderung:
 2. `CHANGELOG.md` – neuen Eintrag unter `[Unreleased]` bzw. der neuen Version pflegen.
 3. `versionCode` in `app/build.gradle` bei Bedarf erhöhen.
 4. `VERSION`-Datei ist die zentrale Quelle für `versionName`.
-4a. Sobald die Über-Seite existiert (Phase 2b): Texte "Neu in Version" und Beschreibung in `values/strings.xml` und `values-en/strings.xml` an die neue Version anpassen. Die Seite erscheint nach einem Update automatisch einmal.
+4a. Die Über-Seite (`about/AboutActivity`) existiert: `about_news_title`, `about_news_items` ("Neu in Version") und `about_description` in `values/strings.xml` UND `values-en/strings.xml` an die neue Version anpassen (Teil der Release-Prüfung). Die Seite erscheint nach einem Update mit geänderter `versionName` automatisch einmal (Preference `about_last_seen_version`).
 5. Nach dem Release-Build APKs mit Versionsname nach `dist/` kopieren:
 
 ```bash

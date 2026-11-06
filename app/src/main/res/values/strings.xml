@@ -29,6 +29,22 @@
     <string name="sort_title_desc">Titel Z–A</string>
     <string name="sort_selected">Ausgewählt</string>
 
+    <string name="menu_select_notes">Notizen auswählen</string>
+    <plurals name="selection_count">
+        <item quantity="one">%d ausgewählt</item>
+        <item quantity="other">%d ausgewählt</item>
+    </plurals>
+    <string name="selection_end">Auswahl beenden</string>
+    <string name="select_all">Alle auswählen</string>
+    <string name="select_none">Auswahl aufheben</string>
+    <string name="confirm_delete_selection_title">Auswahl löschen?</string>
+    <string name="confirm_delete_selection_message">Die ausgewählten Notizen werden in den Papierkorb verschoben. Ausgewählte Ordner werden samt allen Notizen darin gelöscht.</string>
+    <string name="confirm_delete_selection_notes_message">Die ausgewählten Notizen werden in den Papierkorb verschoben.</string>
+    <string name="share_chooser_multi">Notizen teilen</string>
+    <string name="share_nothing">Keine Notizen zum Teilen.</string>
+    <string name="error_move_invalid">Ein Ordner kann nicht in sich selbst oder in einen seiner Unterordner verschoben werden.</string>
+    <string name="error_folder_too_deep">Zu viele verschachtelte Ordner.</string>
+    <string name="error_folder_foreign_files">Ein Ordner enthält Dateien, die keine Notizen sind, und bleibt bestehen.</string>
     <string name="page_of">%1$d/%2$d</string>
     <string name="note_menu_desc">Notizmenü</string>
     <string name="folder_menu_desc">Ordnermenü</string>
@@ -156,4 +172,46 @@
     <string name="tl_cues">Stichwörter</string>
     <string name="tl_summary">Zusammenfassung</string>
     <string name="tl_topic">Thema</string>
+
+    <string name="menu_settings">Einstellungen</string>
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_location">Speicherort</string>
+    <string name="settings_trash">Papierkorb</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_about">Info</string>
+    <string name="trash_empty_action">Papierkorb leeren</string>
+    <string name="trash_empty_title">Papierkorb leeren?</string>
+    <string name="trash_empty_message">Alle Notizen im Papierkorb werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</string>
+    <string name="trash_empty_confirm">Leeren</string>
+    <string name="trash_empty_state">Der Papierkorb ist leer</string>
+    <string name="trash_restore">Wiederherstellen</string>
+    <string name="trash_delete_forever">Endgültig löschen</string>
+    <string name="trash_delete_title">Endgültig löschen?</string>
+    <string name="trash_delete_message">„%1$s“ wird endgültig gelöscht. Das lässt sich nicht rückgängig machen.</string>
+    <string name="trash_deleted_format">gelöscht %1$s</string>
+    <plurals name="trash_pages">
+        <item quantity="one">%d Seite</item>
+        <item quantity="other">%d Seiten</item>
+    </plurals>
+
+    <!--
+      Über-Seite. PFLEGE: about_news_title/about_news_items ("Neu in Version") und about_description bei JEDER Versionsänderung
+      (Datei VERSION) in dieser Datei UND in values-en/strings.xml anpassen; nach einem Update erscheint die Seite einmal automatisch.
+    -->
+    <string name="menu_about">Über</string>
+    <string name="about_title">Über</string>
+    <string name="about_version_format">Version %1$s</string>
+    <string name="about_news_title">Neu in Version %1$s</string>
+    <string name="about_bullet_format">• %1$s</string>
+    <string-array name="about_news_items">
+        <item>Mehrfachauswahl mit Teilen, Verschieben und Löschen</item>
+        <item>Papierkorb-Ansicht: Wiederherstellen und endgültig löschen</item>
+        <item>Einstellungen</item>
+        <item>Über-Seite</item>
+    </string-array>
+    <string name="about_description">PaperNotes by BOB ist eine Notiz-App für handschriftliche Notizen auf dem Huawei Paper (E-Ink). Notizen liegen als Dateien im Ordner Dokumente/PaperNotes und lassen sich in Ordnern ordnen, teilen und im Papierkorb wiederherstellen.</string>
+    <string name="about_license">Freie Software unter der GNU General Public License v3.0 oder später. Copyright © 2025 hjochman. Dieses Programm wird ohne jede Gewährleistung verteilt.</string>
+    <string name="about_source">Quellcode auf GitHub</string>
+    <string name="about_close">Schließen</string>
+    <string name="about_no_browser">Kein Browser gefunden.</string>
 </resources>
