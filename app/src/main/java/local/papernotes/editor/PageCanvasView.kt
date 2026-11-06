@@ -25,7 +25,10 @@ import local.papernotes.model.Stroke
  * - Der Verlauf des Frameworks (`undo()`/`redo()`) wird nicht benutzt. Löst jemand ihn dennoch aus (Typ 1/2), wird das
  *   Ereignis ignoriert.
  * - Der Stift-Pfad bleibt unberührt: Es gibt keine Listener am Touch-Pfad, nur am Strichende.
- * - Die Tracks liegen in Ansichts-Pixeln; Skalierung auf die Seitengröße folgt später.
+ * - Die Tracks der `HWEditView` liegen in Ansichts-Pixeln, [Stroke], [PageHistory] und [onChanged] in Seitenkoordinaten.
+ *   Dazwischen vermittelt [PageTransform] (Seite füllt die Ansichtsbreite, Versatz 0; bei Seitenbreite = Ansichtsbreite
+ *   also 1:1). Zoom und Verschieben ändern später nur [transform] (siehe [updateTransform]).
+ * - Die Stiftbreite ([setPen]) gilt in Ansichts-Pixeln, die gespeicherte Breite ist durch den Maßstab geteilt.
  */
 class PageCanvasView @JvmOverloads constructor(
     context: Context,
@@ -50,6 +53,8 @@ class PageCanvasView @JvmOverloads constructor(
     private var mapper: TrackMapper? = null
     private var history = PageHistory(emptyList())
     private var applying = false
+    private var pageWidth = 0
+    private var transform = PageTransform.IDENTITY
 
     private var tool = Tool.PEN
     private var penType = DEFAULT_PEN_TYPE
@@ -117,8 +122,36 @@ class PageCanvasView @JvmOverloads constructor(
     /** Zeigt [page] mit ihrem Verlauf. Der Aufrufer muss vorher [flush] für die bisherige Seite aufgerufen haben. */
     fun showPage(page: Page, pageHistory: PageHistory) {
         history = pageHistory
+        pageWidth = page.width
+        transform = computeTransform()
+        mapper?.transform = transform
+        background.setPageGeometry(pageWidth, transform)
         background.setTemplate(page.template)
         applyToInk(pageHistory.strokes)
+    }
+
+    /** Abbildung Seite -> Ansicht für die aktuelle Seite; vor dem Layout (Breite 0) die Identität. */
+    private fun computeTransform(): PageTransform =
+        if (width > 0 && pageWidth > 0) PageTransform.fitWidth(width.toFloat(), pageWidth.toFloat()) else PageTransform.IDENTITY
+
+    /**
+     * Übernimmt eine geänderte [transform] (Größenwechsel der Ansicht, später Zoom/Verschieben): offene Änderungen werden
+     * noch mit der alten Abbildung erfasst, danach werden die Tracks aus dem Verlauf (Seitenkoordinaten) neu gesetzt.
+     */
+    private fun updateTransform() {
+        if (pageWidth <= 0) return
+        val next = computeTransform()
+        if (next == transform) return
+        flush()
+        transform = next
+        mapper?.transform = next
+        background.setPageGeometry(pageWidth, next)
+        applyToInk(history.strokes)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        updateTransform()
     }
 
     /** Wechselt nur den Hintergrund der gezeigten Seite; die Striche bleiben unberührt. */

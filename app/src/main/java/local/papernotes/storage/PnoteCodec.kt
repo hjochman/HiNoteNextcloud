@@ -1,5 +1,6 @@
 package local.papernotes.storage
 
+import local.papernotes.editor.PageTransform
 import local.papernotes.model.Note
 import local.papernotes.model.Page
 import local.papernotes.model.Point
@@ -42,7 +43,7 @@ data class NoteSummary(
 internal class PnoteException(val error: PnoteError) : RuntimeException(null, null, false, false)
 
 /**
- * Liest und schreibt `.pnote` (ZIP mit JSON). Format Version 1:
+ * Liest und schreibt `.pnote` (ZIP mit JSON). Format Version 2 (Version 1 wird gelesen und migriert):
  *
  * ```
  * manifest.json        version, id, title, folderPath, created, modified, favorite, pinned, pageIds
@@ -52,13 +53,19 @@ internal class PnoteException(val error: PnoteError) : RuntimeException(null, nu
  * media/<uuid>.<ext>   optional, wird beim Lesen toleriert, Inhalt wird derzeit nicht übernommen
  * ```
  *
+ * Koordinaten: Ab Version 2 liegen Punkte (x, y) und Strichbreiten (w) in Seitenkoordinaten (Maß: `width` x `height`
+ * der Seite). Version 1 speicherte Ansichts-Pixel der Schreibfläche; die Fläche hatte volle Bildschirmbreite, die auch
+ * die Seitenbreite ist (die Ansichtsbreite steht nicht im Paket). Beim Lesen wird Version 1 daher als "Ansichtsbreite =
+ * Seitenbreite" interpretiert ([legacyViewToPage]; Faktor 1, die Zahlen bleiben also gleich). Geschrieben wird immer
+ * Version 2, damit ältere App-Versionen (Prüfung `version > 1`) neue Notizen ablehnen, statt sie falsch zu lesen.
+ *
  * Unbekannte JSON-Felder werden beim Lesen ignoriert. Es wird nichts geloggt; Fehler tragen weder Pfade noch Titel.
  * Eine Vorschau, die zu groß ist oder kein JPEG ist, wird beim Lesen verworfen (die Notiz bleibt lesbar). Ein altes
  * `preview.png` wird toleriert und ignoriert. Hinweis: Da das Modell noch keine Medien kennt, gehen Medien (`media/`)
  * beim Neuschreiben verloren.
  */
 object PnoteCodec {
-    const val FORMAT_VERSION = 1
+    const val FORMAT_VERSION = 2
     const val MAX_TOTAL_BYTES = 64L * 1024 * 1024
     const val MAX_ENTRY_BYTES = 16L * 1024 * 1024
     const val MAX_PREVIEW_BYTES = 2 * 1024 * 1024
@@ -76,6 +83,13 @@ object PnoteCodec {
     private val MEDIA_ENTRY = Regex("media/$UUID_PATTERN\\.[a-z0-9]{1,8}")
     private val TEMPLATE_REGEX = Regex("[a-z0-9_]{1,32}")
     private const val MAX_NAME_LENGTH = 200
+
+    /**
+     * Abbildung für Version-1-Striche: Pixel einer Schreibfläche der Breite [legacyViewWidth] -> Seitenkoordinaten
+     * (`toPage`). Ohne gespeicherte Ansichtsbreite gilt die Seitenbreite als Bezug (Identität).
+     */
+    internal fun legacyViewToPage(pageWidth: Int, legacyViewWidth: Int = pageWidth): PageTransform =
+        PageTransform.fitWidth(legacyViewWidth.toFloat(), pageWidth.toFloat())
 
     /** IDs sind Pfadbestandteil und müssen daher kleingeschriebene UUIDs sein. */
     fun isValidId(id: String): Boolean = UUID_REGEX.matches(id)
@@ -307,7 +321,7 @@ object PnoteCodec {
         val pages = LinkedHashMap<String, Page>()
         for (id in manifest.pageIds) {
             val bytes = unpacked.pages[id] ?: throw PnoteException(PnoteError.Corrupt)
-            pages[id] = parsePage(id, bytes)
+            pages[id] = parsePage(id, bytes, manifest.version)
         }
         PnoteResult.Ok(
             Note(
@@ -400,6 +414,7 @@ object PnoteCodec {
     private class LimitedData(val size: Int, val bytes: ByteArray)
 
     private class Manifest(
+        val version: Int,
         val id: String,
         val title: String,
         val folderPath: String,
@@ -489,6 +504,7 @@ object PnoteCodec {
         if (ids.toSet().size != ids.size) throw PnoteException(PnoteError.Corrupt)
         if (!FolderPath.isValid(folderPath)) throw PnoteException(PnoteError.InvalidFolder)
         return Manifest(
+            version,
             noteId,
             title ?: throw PnoteException(PnoteError.Corrupt),
             folderPath,
@@ -500,7 +516,7 @@ object PnoteCodec {
         )
     }
 
-    private fun parsePage(id: String, bytes: ByteArray): Page {
+    private fun parsePage(id: String, bytes: ByteArray, version: Int): Page {
         var template = "blank"
         var width: Int? = null
         var height: Int? = null
@@ -524,6 +540,10 @@ object PnoteCodec {
         val h = height ?: throw PnoteException(PnoteError.Corrupt)
         if (w !in 1..MAX_PAGE_DIMENSION || h !in 1..MAX_PAGE_DIMENSION) throw PnoteException(PnoteError.Corrupt)
         if (!TEMPLATE_REGEX.matches(template)) throw PnoteException(PnoteError.Corrupt)
+        if (version < 2) {
+            val legacy = legacyViewToPage(w)
+            if (!legacy.isIdentity) strokes = strokes.map { legacy.toPage(it) }
+        }
         return Page(id, template, w, h, strokes, bookmarked)
     }
 

@@ -264,8 +264,73 @@ class PnoteCodecTest {
 
     @Test
     fun rejectsUnknownNewerVersion() {
-        val z = TestData.zip(listOf("manifest.json" to TestData.manifest(version = 2)))
-        assertEquals(PnoteError.UnsupportedVersion(2), decode(z).errorOrNull())
+        val next = PnoteCodec.FORMAT_VERSION + 1
+        val z = TestData.zip(listOf("manifest.json" to TestData.manifest(version = next)))
+        assertEquals(PnoteError.UnsupportedVersion(next), decode(z).errorOrNull())
+    }
+
+    // ------------------------------------------------------------ Migration Version 1 -> 2 (Seitenkoordinaten)
+
+    private fun manifestVersion(bytes: ByteArray): Int {
+        val zip = java.util.zip.ZipInputStream(ByteArrayInputStream(bytes))
+        while (true) {
+            val e = zip.nextEntry ?: error("kein Manifest")
+            if (e.name == "manifest.json") {
+                return Regex("\"version\":(\\d+)").find(String(zip.readBytes()))!!.groupValues[1].toInt()
+            }
+        }
+    }
+
+    @Test
+    fun writesCurrentFormatVersion() {
+        assertEquals(2, PnoteCodec.FORMAT_VERSION)
+        assertEquals(PnoteCodec.FORMAT_VERSION, manifestVersion(TestData.encode(TestData.simpleNote())))
+    }
+
+    @Test
+    fun version1NoteIsReadUnchangedAsPageCoordinates() {
+        // Version 1 hatte Ansichts-Pixel der vollbreiten Schreibfläche; Bezug ist die Seitenbreite (Faktor 1).
+        val pid = TestData.uuid()
+        val page = """{"template":"grid","width":1404,"height":1872,"bookmarked":false,""" +
+            """"strokes":[{"t":2,"w":4,"c":-16777216,"p":[[10.5,20.25,3,0.5],[700,1500,4,0.75]]}]}"""
+        val z = TestData.zip(
+            listOf(
+                "manifest.json" to TestData.manifest(pageIds = listOf(pid), version = 1),
+                "pages/$pid.json" to page.toByteArray(),
+            ),
+        )
+        val s = decode(z).valueOrNull()!!.pages.getValue(pid).strokes.single()
+        assertEquals(4f, s.width, 0f)
+        assertEquals(local.papernotes.model.Point(10.5f, 20.25f, 3L, 0.5f), s.points[0])
+        assertEquals(local.papernotes.model.Point(700f, 1500f, 4L, 0.75f), s.points[1])
+    }
+
+    @Test
+    fun version1NoteIsWrittenAsVersion2WithSameStrokes() {
+        val pid = TestData.uuid()
+        val page = """{"template":"blank","width":1404,"height":1872,"bookmarked":false,""" +
+            """"strokes":[{"t":1,"w":2.5,"c":-1,"p":[[1,2,3,0.5]]}]}"""
+        val z = TestData.zip(
+            listOf(
+                "manifest.json" to TestData.manifest(pageIds = listOf(pid), version = 1),
+                "pages/$pid.json" to page.toByteArray(),
+            ),
+        )
+        val old = decode(z).valueOrNull()!!
+        val rewritten = TestData.encode(old)
+        assertEquals(2, manifestVersion(rewritten))
+        assertEquals(old, decode(rewritten).valueOrNull())
+    }
+
+    @Test
+    fun legacyViewToPageScalesPointsAndWidthByPageOverViewWidth() {
+        // Falls eine Ansichtsbreite bekannt wäre (hier 702 statt 1404): Seitenkoordinaten = Pixel * 2, Breite * 2.
+        val t = PnoteCodec.legacyViewToPage(pageWidth = 1404, legacyViewWidth = 702)
+        val s = t.toPage(local.papernotes.model.Stroke(2, 3f, 0, listOf(local.papernotes.model.Point(100f, 50f, 1L, 0.5f))))
+        assertEquals(6f, s.width, 0f)
+        assertEquals(200f, s.points[0].x, 0f)
+        assertEquals(100f, s.points[0].y, 0f)
+        assertTrue(PnoteCodec.legacyViewToPage(1404).isIdentity)
     }
 
     @Test

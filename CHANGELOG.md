@@ -7,6 +7,10 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Geändert
+- Phase 3 (3-1): Striche liegen jetzt in Seitenkoordinaten (Seitengröße der `Page`, Standard 1404x1872) statt in Ansichts-Pixeln. Reine Abbildung Seite <-> Ansicht in `PageTransform` (Maßstab + Versatz, Punkte und Strichbreiten); `TrackMapper` und `PageCanvasView` rechnen an der Grenze zur `HWEditView` um, `PageBackgroundView` legt die Vorlage mit derselben Abbildung auf die Seite. Aktuell Maßstab = Ansichtsbreite / Seitenbreite (bei 1404 Pixeln Breite 1:1), Versatz 0.
+- `.pnote` Format-Version 2 (Koordinaten in Seitenkoordinaten). Version 1 wird weiter gelesen (Ansichtsbreite = Seitenbreite, Zahlen unverändert) und beim nächsten Speichern als Version 2 geschrieben; ältere App-Versionen lehnen Version 2 ab.
+
 ## [0.2.0] - 2026-11-06
 
 ### Hinzugefügt
