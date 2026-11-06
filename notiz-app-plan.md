@@ -22,7 +22,8 @@ Stand: 2026-11-05. Dies ist der Hauptplan für die App. Der Plan `hinote-nextclo
 | **Phase 3 (Rest):** Radierkreis, Lasso-Unterleiste und Skalieren, Seitenleiste, Zoom, Skalierung der Striche | **offen** | Lasso-Werkzeug ist eingebunden (laut Code: Auswahl, Verschieben, Löschen und Verlauf über das Framework; auf dem Tablet nicht geprüft). Platzhalter (ausgegraut): Menü `⋮`, Seitenleiste, Textbox, Bild, Audio |
 | Phase 4: Text, Bild, Audio | offen | Unterleisten von Lasso, Textbox, Bild in HiNote noch nicht erfasst |
 | Phase 5: Übernahme der HiNote-Notizen | offen | Prototyp `tmp/export_all.py` exportierte 11 von 33 |
-| Phase 6: PDF, Sync (Nextcloud), Plugin | offen | Papierkorb `.trash/` vom Sync ausschließen |
+| Phase 6: PDF-Export in der App | **umgesetzt, auf dem Tablet geprüft** | `export/`: PDF je Notiz (Vektor, 595 pt breit), Teilen oder Speichern nach `Documents/PaperNotesPDF`; Startseite (Notizmenü, Auswahlmodus) und Editor-Menü `⋮`. Offen: Bild-Export, Seitenauswahl, Marker-Transparenz (wie Vorschau nicht vorhanden) |
+| Phase 6: Sync (Nextcloud), Plugin | offen | Papierkorb `.trash/` vom Sync ausschließen |
 | Phase 7: Schrifterkennung | zurückgestellt | Sperre der Huawei-Engine wird nicht umgangen |
 
 ## 1. Ziel
@@ -101,7 +102,7 @@ media/<uuid>.<ext>   Bilder, Audio
 - Konflikte: Änderungszeit plus ETag. Bei Konflikt beide Fassungen behalten.
 
 ### PDF (Vorschlag)
-- `android.graphics.pdf.PdfDocument` (Teil von Android, keine Fremdbibliothek). Striche als Vektorpfade, Breite aus dem Druck selbst berechnet. Nicht getestet.
+- `android.graphics.pdf.PdfDocument` (Teil von Android, keine Fremdbibliothek). Umgesetzt: Striche als Vektorpfade (Linienzüge, Breite und Farbe aus dem Strich, keine Druckberechnung), Seitenbreite 595 pt. Auf dem Tablet geprüft (siehe Phase 6).
 - Für Plugin und PC-Tool dieselbe Logik in einer anderen Sprache (siehe Phase 6).
 
 ## 5. Phasen
@@ -126,7 +127,7 @@ Jede Phase endet mit einem Test auf dem Tablet und einer Rückmeldung des Nutzer
 Entschieden: Der Papierkorb behält Notizen, bis der Nutzer ihn leert (keine automatische Frist). Die Einstellungen starten mit dem oben genannten Umfang. Die Lizenz ist GPL-3.0-or-later (wie PDFScan by BOB); die `LICENSE`-Datei (offizieller GNU-Text) und ein README-Abschnitt "Lizenz" werden mit diesem Schritt angelegt. Logo für Über: `PaperNotes BY BOB.png`. Das Banner `PaperNotes BY BOB-banner.jpg` ist für die README gedacht.
 Referenz: Menü `⋮` der Startseite in HiNote enthält "Notizen auswählen", "Sortieren nach" und "Einstellungen". Ein Teil davon ist umgesetzt (Sortieren nach).
 - **Auswahlmodus** ("Notizen auswählen"): Kopfzeile wechselt zu `✕  N Elemente ausgewählt`. Aktionen oben rechts als Symbol mit Beschriftung: Teilen, Exportieren, Verschieben, Löschen, Alle auswählen. Jede Kachel und Listenzeile bekommt unten rechts ein Auswahlkästchen, ein Tipp auf die Kachel setzt oder löst den Haken (öffnet nichts). Notizen und Ordner sind gemeinsam wählbar. Zurück-Taste oder `✕` beendet den Modus.
-- **Sammelaktionen:** Löschen (Notizen in den Papierkorb, Ordner samt Inhalt nach Rückfrage), Verschieben (Zielordner wählen, Ordner nicht in sich selbst), Teilen (mehrere `.pnote`-Dateien über `ACTION_SEND_MULTIPLE`). Exportieren: Dialog "Exportieren als" mit Bild und PDF (kommt mit Phase 6; TXT entfällt, solange es keine Schrifterkennung gibt). Bis dahin bleibt der Eintrag ausgegraut.
+- **Sammelaktionen:** Löschen (Notizen in den Papierkorb, Ordner samt Inhalt nach Rückfrage), Verschieben (Zielordner wählen, Ordner nicht in sich selbst), Teilen (mehrere `.pnote`-Dateien über `ACTION_SEND_MULTIPLE`). Exportieren: Dialog "Exportieren als" mit PDF (umgesetzt; Bild-Export bleibt offen, TXT entfällt, solange es keine Schrifterkennung gibt), danach Teilen oder "In Dokumente speichern" (`Documents/PaperNotesPDF`).
 - **Einstellungen:** eigene Seite, zunächst nur Sprache folgt dem System (keine Auswahl nötig), Speicherort anzeigen, Papierkorb leeren, Versionsangabe und Info. Sync-Einstellungen kommen mit Phase 6.
 - **Papierkorb ansehen:** Wiederherstellen und endgültig löschen, erreichbar über die Einstellungen (bisher gibt es `.trash/` nur im Dateisystem).
 - **Über (About):** Eintrag im Menü `⋮` der Startseite, Verhalten und Inhalt wie in PDFScan by BOB (Vorlage: `~/git/PDFScan-BY-BOB`, `ui/about/AboutScreen.kt`, `AboutViewModel.kt`, Texte in `values/strings.xml` unter "About"):

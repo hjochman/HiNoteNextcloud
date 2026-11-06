@@ -19,6 +19,7 @@ import android.widget.TextView
 import android.widget.Toast
 import local.papernotes.NotesLocation
 import local.papernotes.R
+import local.papernotes.export.ExportFlow
 import local.papernotes.home.PreviewStamper
 import local.papernotes.storage.BackupPolicy
 import local.papernotes.storage.BackupStore
@@ -279,12 +280,27 @@ class EditorActivity : Activity() {
         if (overlayCount > 0 && --overlayCount == 0) canvas.suspendWriting(false)
     }
 
+    private val exportFlow by lazy { ExportFlow(this, ::overlayOpened, ::overlayClosed) }
+
     private fun showMoreMenu(anchor: View) {
         val menu = PopupMenu(this, anchor)
-        menu.menu.add(R.string.menu_more_soon).isEnabled = false
+        menu.menu.add(0, MENU_EXPORT_PDF, 0, R.string.menu_export_pdf)
+        menu.setOnMenuItemClickListener { item ->
+            if (item.itemId == MENU_EXPORT_PDF) exportPdf()
+            true
+        }
         menu.setOnDismissListener { overlayClosed() }
         overlayOpened()
         menu.show()
+    }
+
+    /** Speichert die Notiz und exportiert den gespeicherten Stand als PDF (Teilen oder In Dokumente speichern). */
+    private fun exportPdf() {
+        val s = session ?: return
+        canvas.flush()
+        s.save()
+        val note = s.note // unveränderliche Momentaufnahme, wird im Hintergrund-Thread gezeichnet
+        exportFlow.chooseTarget(listOf(ExportFlow.Source(note.title) { note }))
     }
 
     private fun loadNote(executor: ExecutorService, noteId: String) {
@@ -490,6 +506,7 @@ class EditorActivity : Activity() {
 
     override fun onDestroy() {
         ui.removeCallbacks(backupTick)
+        exportFlow.cancel()
         checkAndRunBackup(isClosing = true)
         if (::popup.isInitialized && popup.isShowing) popup.dismiss()
         session?.close()
@@ -516,6 +533,7 @@ class EditorActivity : Activity() {
 
     companion object {
         private const val EXTRA_NOTE_ID = "local.papernotes.NOTE_ID"
+        private const val MENU_EXPORT_PDF = 1
         private const val PREFS_NAME = "editor_tools"
         private const val PREFS_SETTINGS = "settings"
         private const val BACKUP_TICK_MS = 10_000L

@@ -86,6 +86,24 @@
     <string name="sidebar">Seitenleiste</string>
     <string name="menu_more">Menü</string>
     <string name="menu_more_soon">Bald verfügbar</string>
+    <string name="menu_export_pdf">Exportieren als PDF</string>
+    <string name="export_as_title">Exportieren als</string>
+    <string name="export_format_pdf">PDF</string>
+    <string name="export_target_title">PDF exportieren</string>
+    <string name="export_save">In Dokumente speichern</string>
+    <string name="export_nothing">Keine Notizen zum Exportieren.</string>
+    <string name="export_progress_title">PDF wird erstellt</string>
+    <string name="export_progress_start">Bitte warten …</string>
+    <string name="export_progress_page">Seite %1$d/%2$d</string>
+    <string name="export_progress_note">Notiz %1$d/%2$d</string>
+    <string name="export_chooser">PDF teilen</string>
+    <string name="export_chooser_multi">PDFs teilen</string>
+    <plurals name="export_saved">
+        <item quantity="one">%1$d PDF gespeichert in %2$s.</item>
+        <item quantity="other">%1$d PDFs gespeichert in %2$s.</item>
+    </plurals>
+    <string name="error_export">Der Export ist fehlgeschlagen.</string>
+    <string name="error_export_partial">Nicht alle Notizen konnten exportiert werden.</string>
     <string name="tool_pen">Stift</string>
     <string name="tool_eraser">Radierer</string>
     <string name="tool_lasso">Lasso</string>

@@ -123,7 +123,6 @@
         <TextView
             android:id="@+id/actionExport"
             style="@style/Widget.PaperNotes.SelectionAction"
-            android:enabled="false"
             android:drawableTop="@drawable/ic_export"
             android:text="@string/action_export" />
 

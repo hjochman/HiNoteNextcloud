@@ -40,13 +40,13 @@ internal object NoteSharing {
     }
 
     /**
-     * Auswahldialog-Intent für [files] (mindestens eine Datei). Wirft [IllegalArgumentException], wenn eine Datei
-     * außerhalb des freigegebenen Ordners liegt.
+     * Auswahldialog-Intent für [files] (mindestens eine Datei) mit dem Medientyp [mimeType]. Wirft [IllegalArgumentException],
+     * wenn eine Datei außerhalb der freigegebenen Ordner (`share`, `export`) liegt.
      */
-    fun chooserIntent(context: Context, files: List<File>, chooserTitle: String): Intent {
+    fun chooserIntent(context: Context, files: List<File>, chooserTitle: String, mimeType: String = "application/octet-stream"): Intent {
         val uris = ArrayList<Uri>(files.map { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) })
         val send = Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
-            type = "application/octet-stream"
+            type = mimeType
             if (uris.size == 1) putExtra(Intent.EXTRA_STREAM, uris[0]) else putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
             clipData = ClipData.newRawUri("", uris[0]).also { clip -> uris.drop(1).forEach { clip.addItem(ClipData.Item(it)) } }
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

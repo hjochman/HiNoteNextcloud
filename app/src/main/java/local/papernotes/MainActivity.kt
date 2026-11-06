@@ -32,6 +32,7 @@ import android.widget.TextView
 import android.widget.Toast
 import local.papernotes.about.AboutActivity
 import local.papernotes.editor.EditorActivity
+import local.papernotes.export.ExportFlow
 import local.papernotes.home.DateLabels
 import local.papernotes.home.Entry
 import local.papernotes.home.FolderItem
@@ -74,6 +75,7 @@ class MainActivity : Activity() {
     private lateinit var textSelCount: TextView
     private lateinit var textSelectAll: TextView
     private lateinit var actionShare: View
+    private lateinit var actionExport: View
     private lateinit var actionMove: View
     private lateinit var actionDelete: View
     private lateinit var buttonBack: ImageButton
@@ -110,6 +112,7 @@ class MainActivity : Activity() {
     private var layout: List<List<List<Int>>> = emptyList()
     private var permissionAsked = false
 
+    private val exportFlow by lazy { ExportFlow(this) }
     private val selection = SelectionState()
     private var tiles: HomeTiles? = null
 
@@ -152,6 +155,7 @@ class MainActivity : Activity() {
         textSelCount = findViewById(R.id.textSelCount)
         textSelectAll = findViewById(R.id.actionSelectAll)
         actionShare = findViewById(R.id.actionShare)
+        actionExport = findViewById(R.id.actionExport)
         actionMove = findViewById(R.id.actionMove)
         actionDelete = findViewById(R.id.actionDelete)
         buttonBack = findViewById(R.id.buttonBack)
@@ -209,6 +213,7 @@ class MainActivity : Activity() {
         buttonViewMode.setOnClickListener { toggleViewMode() }
         findViewById<View>(R.id.buttonSelClose).setOnClickListener { endSelection() }
         actionShare.setOnClickListener { shareSelection() }
+        actionExport.setOnClickListener { exportSelection() }
         actionMove.setOnClickListener { askMoveSelection() }
         actionDelete.setOnClickListener { askDeleteSelection() }
         textSelectAll.setOnClickListener { toggleSelectAll() }
@@ -278,6 +283,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         loadToken++
+        exportFlow.cancel()
         io.shutdown()
         loader?.shutdown()
         super.onDestroy()
@@ -429,6 +435,7 @@ class MainActivity : Activity() {
         val n = selection.count
         textSelCount.text = resources.getQuantityString(R.plurals.selection_count, n, n)
         actionShare.isEnabled = n > 0
+        actionExport.isEnabled = n > 0
         actionMove.isEnabled = n > 0
         actionDelete.isEnabled = n > 0
         val keys = selectableKeys()
@@ -477,6 +484,19 @@ class MainActivity : Activity() {
             runOnUiThread { if (!isDestroyed) shareNotes(r, notes) }
         }
     }
+
+    private fun exportSelection() {
+        val r = repo ?: return
+        val sel = selection.snapshot()
+        if (sel.noteIds.isEmpty() && sel.folderPaths.isEmpty()) return
+        io.execute {
+            val notes = SelectionActions.notesToShare(r, sel)
+            runOnUiThread { if (!isDestroyed) exportFlow.chooseFormat(notes.map { exportSource(r, it) }) }
+        }
+    }
+
+    private fun exportSource(r: NoteRepository, note: NoteSummary) =
+        ExportFlow.Source(note.title) { r.load(note.id).valueOrNull() }
 
     private fun resultOf(error: PnoteError?): PnoteResult<Unit> = if (error == null) PnoteResult.Ok(Unit) else PnoteResult.Err(error)
 
@@ -599,7 +619,9 @@ class MainActivity : Activity() {
             },
             MenuEntry(R.drawable.ic_move, getString(R.string.action_move)) { askMoveNote(note) },
             MenuEntry(R.drawable.ic_share, getString(R.string.action_share)) { shareNote(note) },
-            MenuEntry(R.drawable.ic_export, getString(R.string.action_export), enabled = false) { },
+            MenuEntry(R.drawable.ic_export, getString(R.string.action_export)) {
+                repo?.let { r -> exportFlow.chooseFormat(listOf(exportSource(r, note))) }
+            },
             MenuEntry(R.drawable.ic_trash, getString(R.string.delete)) { askDeleteNote(note) },
         ),
     )

@@ -86,6 +86,24 @@
     <string name="sidebar">Page sidebar</string>
     <string name="menu_more">Menu</string>
     <string name="menu_more_soon">Coming soon</string>
+    <string name="menu_export_pdf">Export as PDF</string>
+    <string name="export_as_title">Export as</string>
+    <string name="export_format_pdf">PDF</string>
+    <string name="export_target_title">Export PDF</string>
+    <string name="export_save">Save to Documents</string>
+    <string name="export_nothing">No notes to export.</string>
+    <string name="export_progress_title">Creating PDF</string>
+    <string name="export_progress_start">Please wait …</string>
+    <string name="export_progress_page">Page %1$d/%2$d</string>
+    <string name="export_progress_note">Note %1$d/%2$d</string>
+    <string name="export_chooser">Share PDF</string>
+    <string name="export_chooser_multi">Share PDFs</string>
+    <plurals name="export_saved">
+        <item quantity="one">%1$d PDF saved to %2$s.</item>
+        <item quantity="other">%1$d PDFs saved to %2$s.</item>
+    </plurals>
+    <string name="error_export">The export failed.</string>
+    <string name="error_export_partial">Not all notes could be exported.</string>
     <string name="tool_pen">Pen</string>
     <string name="tool_eraser">Eraser</string>
     <string name="tool_lasso">Lasso</string>

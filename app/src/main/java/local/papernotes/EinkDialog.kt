@@ -73,8 +73,67 @@ internal object EinkDialog {
         return dialog
     }
 
+    /** Fortschrittsdialog: nur Text (keine Animation, E-Ink), unten "Abbrechen". */
+    class Progress(val dialog: Dialog, private val message: TextView) {
+        fun setText(text: String) {
+            message.text = text
+        }
+
+        fun dismiss() {
+            if (dialog.isShowing) dialog.dismiss()
+        }
+    }
+
+    /** Zeigt [title] und einen aktualisierbaren Text; "Abbrechen" und die Zurück-Taste rufen [onCancel] und schließen den Dialog. */
+    fun progress(activity: Activity, title: String, initialText: String, onCancel: () -> Unit): Progress {
+        val density = activity.resources.displayMetrics.density
+        fun dp(v: Int) = Math.round(v * density)
+        val dialog = Dialog(activity, R.style.Theme_PaperNotes_TemplateDialog)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setCanceledOnTouchOutside(false)
+        val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        val body = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(20), dp(24), dp(16))
+        }
+        body.addView(
+            TextView(activity).apply {
+                text = title
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                setTextColor(activity.getColor(R.color.black))
+                setTypeface(typeface, Typeface.BOLD)
+            },
+        )
+        val message = TextView(activity).apply {
+            text = initialText
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setTextColor(activity.getColor(R.color.black))
+            setPadding(0, dp(12), 0, 0)
+        }
+        body.addView(message)
+        root.addView(body)
+        root.addView(View(activity).apply { setBackgroundColor(activity.getColor(R.color.black)) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+        val cancel = TextView(activity, null, 0, R.style.Widget_PaperNotes_DialogButton).apply {
+            text = activity.getString(R.string.cancel)
+            setOnClickListener {
+                onCancel()
+                dialog.dismiss()
+            }
+        }
+        root.addView(cancel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)))
+        dialog.setOnCancelListener { onCancel() }
+        dialog.setContentView(root)
+        dialog.window?.let { w ->
+            w.setLayout(minOf(activity.resources.displayMetrics.widthPixels - dp(48), dp(520)), ViewGroup.LayoutParams.WRAP_CONTENT)
+            w.setWindowAnimations(0)
+        }
+        dialog.show()
+        return Progress(dialog, message)
+    }
+
     /**
      * Auswahldialog mit Einzelauswahl im E-Ink-Stil. Bei Klick auf eine Option wird [onSelected] mit dem Index aufgerufen.
+     * Mit [selectedIndex] = -1 ist keine Option markiert (reine Aktionsliste).
      */
     fun singleChoice(
         activity: Activity,
