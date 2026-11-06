@@ -18,6 +18,7 @@ Stand: 2026-11-05. Dies ist der Hauptplan für die App. Der Plan `hinote-nextclo
 | App-Icon (Adaptive Icon) | fertig | Rahmen im Launcher sichtbar, Icon wirkt etwas klein (Inset 22 %, ggf. 20 %) |
 | Zweisprachigkeit (de/en) | im Code fertig | auf dem Gerät nur Deutsch gesehen |
 | **Phase 2b:** Mehrfachauswahl, Einstellungen, Papierkorb-Ansicht, Über, `LICENSE` | **umgesetzt (0.2.0), Gerätetest teilweise** | Auf dem Tablet gesehen: Über-Seite (Auto-Anzeige), Startseite, Menü `⋮`, Einstellungen, leerer Papierkorb, Auswahlmodus (Haken setzen). **Gerätetest ausstehend:** Teilen/Verschieben/Löschen, Papierkorb mit Inhalt (Wiederherstellen, endgültig löschen), Englisch. Siehe Abschnitt Phase 2b |
+| Automatische Sicherungskopien beim Schreiben | fertig, auf dem Tablet geprüft | Intervall einstellbar (Standard 5 min), `.backup/<noteId>/` max. 10 je Notiz, Wiederherstellen nur als Kopie; `.backup` wie `.trash` vom Sync ausschließen (Phase 6) |
 | **Phase 3 (Rest):** Radierkreis, Lasso-Unterleiste und Skalieren, Seitenleiste, Zoom, Skalierung der Striche | **offen** | Lasso-Werkzeug ist eingebunden (laut Code: Auswahl, Verschieben, Löschen und Verlauf über das Framework; auf dem Tablet nicht geprüft). Platzhalter (ausgegraut): Menü `⋮`, Seitenleiste, Textbox, Bild, Audio |
 | Phase 4: Text, Bild, Audio | offen | Unterleisten von Lasso, Textbox, Bild in HiNote noch nicht erfasst |
 | Phase 5: Übernahme der HiNote-Notizen | offen | Prototyp `tmp/export_all.py` exportierte 11 von 33 |

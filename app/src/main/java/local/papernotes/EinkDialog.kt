@@ -2,17 +2,20 @@ package local.papernotes
 
 import android.app.Activity
 import android.app.Dialog
+import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * Rückfrage-Dialog nach den E-Ink-Regeln der Startseite (weiß, schwarzer Rand, keine Animation, Abdunkelung oder Schatten;
- * unten "Abbrechen" und die Bestätigung, je 56dp hoch). Gleiche Optik wie `MainActivity.openDialog`.
+ * Rückfrage- und Auswahldialoge nach den E-Ink-Regeln (weiß, schwarzer Rand, keine Animation, Abdunkelung oder Schatten;
+ * Touch-Ziele mindestens 48–56dp hoch).
  */
 internal object EinkDialog {
     fun confirm(activity: Activity, title: String, message: String, positive: String, onConfirm: () -> Unit): Dialog {
@@ -61,6 +64,98 @@ internal object EinkDialog {
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f),
         )
         root.addView(buttons, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)))
+        dialog.setContentView(root)
+        dialog.window?.let { w ->
+            w.setLayout(minOf(activity.resources.displayMetrics.widthPixels - dp(48), dp(520)), ViewGroup.LayoutParams.WRAP_CONTENT)
+            w.setWindowAnimations(0)
+        }
+        dialog.show()
+        return dialog
+    }
+
+    /**
+     * Auswahldialog mit Einzelauswahl im E-Ink-Stil. Bei Klick auf eine Option wird [onSelected] mit dem Index aufgerufen.
+     */
+    fun singleChoice(
+        activity: Activity,
+        title: String,
+        items: List<String>,
+        selectedIndex: Int,
+        onSelected: (Int) -> Unit,
+    ): Dialog {
+        val density = activity.resources.displayMetrics.density
+        fun dp(v: Int) = Math.round(v * density)
+        fun lineGray() = View(activity).apply { setBackgroundColor(activity.getColor(R.color.line_gray)) }
+        fun lineBlack() = View(activity).apply { setBackgroundColor(activity.getColor(R.color.black)) }
+        fun button(label: String, onClick: () -> Unit) =
+            TextView(activity, null, 0, R.style.Widget_PaperNotes_DialogButton).apply {
+                text = label
+                setOnClickListener { onClick() }
+            }
+
+        val dialog = Dialog(activity, R.style.Theme_PaperNotes_TemplateDialog)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        val header = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(20), dp(24), dp(16))
+        }
+        header.addView(
+            TextView(activity).apply {
+                text = title
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                setTextColor(activity.getColor(R.color.black))
+                setTypeface(typeface, Typeface.BOLD)
+            },
+        )
+        root.addView(header)
+        root.addView(lineBlack(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+
+        val listLayout = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        for ((index, itemText) in items.withIndex()) {
+            val isSelected = index == selectedIndex
+            val row = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(24), dp(8), dp(24), dp(8))
+                background = activity.getDrawable(R.drawable.bg_list_row)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    dialog.dismiss()
+                    onSelected(index)
+                }
+            }
+            val text = TextView(activity).apply {
+                this.text = itemText
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                setTextColor(activity.getColor(if (isSelected) R.color.black else R.color.text_tint))
+                if (isSelected) setTypeface(typeface, Typeface.BOLD)
+            }
+            row.addView(text, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            if (isSelected) {
+                val icon = ImageView(activity).apply {
+                    setImageResource(R.drawable.ic_check)
+                    imageTintList = ColorStateList.valueOf(activity.getColor(R.color.black))
+                }
+                row.addView(icon, LinearLayout.LayoutParams(dp(24), dp(24)))
+            }
+            listLayout.addView(row)
+            if (index < items.size - 1) {
+                listLayout.addView(lineGray(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+            }
+        }
+        root.addView(listLayout)
+        root.addView(lineBlack(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+
+        val buttons = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
+        buttons.addView(
+            button(activity.getString(R.string.cancel)) { dialog.dismiss() },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+        )
+        root.addView(buttons, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)))
+
         dialog.setContentView(root)
         dialog.window?.let { w ->
             w.setLayout(minOf(activity.resources.displayMetrics.widthPixels - dp(48), dp(520)), ViewGroup.LayoutParams.WRAP_CONTENT)

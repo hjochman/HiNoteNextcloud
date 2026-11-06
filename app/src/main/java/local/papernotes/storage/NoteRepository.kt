@@ -31,6 +31,8 @@ data class TrashedNote(
  * Dateiablage unter [rootDir]: Ordner = Verzeichnisse, Notiz = `<id>.pnote` (Titel steht nur im Manifest,
  * Umbenennen verschiebt also keine Datei). Gelöschte Notizen landen in `.trash/` und lassen sich mit
  * [listTrash], [restoreFromTrash], [deleteFromTrash], [emptyTrash] und [trashCount] verwalten.
+ * Automatische Sicherungskopien liegen unter `.backup/` und werden wie `.trash` von allen Listen/Suchen ignoriert
+ * und bei Papierkorb-Aktionen bewusst nicht gelöscht.
  *
  * Ordnerpfad: Das Manifest ist die Quelle der Wahrheit, das Verzeichnis spiegelt ihn. Bei Abweichung gewinnt das Manifest
  * NICHT automatisch; [move] und [renameFolder] ändern deshalb beides gemeinsam, [save] legt die Datei immer
@@ -38,7 +40,6 @@ data class TrashedNote(
  *
  * Pfadsicherheit: Ordnernamen per Allowlist ([FolderPath]), aufgelöste Pfade per `canonicalFile` auf [rootDir] begrenzt,
  * Dateinamen entstehen nur aus UUIDs. Symbolische Links werden beim Suchen nicht verfolgt.
- * Noch nicht an die UI angeschlossen.
  */
 class NoteRepository(rootDir: File, private val clock: () -> Long = System::currentTimeMillis) {
     private val root: File = rootDir.canonicalFile

@@ -42,6 +42,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".backup.BackupsActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".trash.TrashActivity"
             android:exported="false" />
 

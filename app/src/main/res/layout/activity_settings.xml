@@ -56,6 +56,109 @@
             style="@style/Widget.PaperNotes.SettingsValue" />
     </LinearLayout>
 
+    <!-- Abschnitt Sicherung. -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/surface_gray"
+        android:paddingStart="24dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="10dp"
+        android:text="@string/settings_backup_section"
+        android:textColor="@color/black"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <!-- Automatische Sicherung (Intervall auswählen). -->
+    <LinearLayout
+        android:id="@+id/rowBackupInterval"
+        style="@style/Widget.PaperNotes.SettingsRow"
+        android:background="@drawable/bg_list_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Widget.PaperNotes.SettingsLabel"
+                android:text="@string/settings_backup_interval" />
+
+            <TextView
+                android:id="@+id/textBackupInterval"
+                style="@style/Widget.PaperNotes.SettingsValue" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_chevron_right"
+            android:tint="@color/icon_tint" />
+    </LinearLayout>
+
+    <!-- Sicherungen ansehen. -->
+    <LinearLayout
+        android:id="@+id/rowBackups"
+        style="@style/Widget.PaperNotes.SettingsRow"
+        android:background="@drawable/bg_list_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Widget.PaperNotes.SettingsLabel"
+                android:text="@string/settings_backups" />
+
+            <TextView
+                android:id="@+id/textBackupsSummary"
+                style="@style/Widget.PaperNotes.SettingsValue" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_chevron_right"
+            android:tint="@color/icon_tint" />
+    </LinearLayout>
+
+    <!-- Alle Sicherungen löschen. -->
+    <LinearLayout
+        android:id="@+id/rowDeleteBackups"
+        style="@style/Widget.PaperNotes.SettingsRow"
+        android:background="@drawable/bg_list_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:orientation="horizontal">
+
+        <TextView
+            style="@style/Widget.PaperNotes.SettingsLabel"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:duplicateParentState="true"
+            android:text="@string/backup_delete_all_action" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:duplicateParentState="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_trash"
+            android:tint="@color/icon_tint" />
+    </LinearLayout>
+
     <!-- Papierkorb ansehen. -->
     <LinearLayout
         android:id="@+id/rowTrash"

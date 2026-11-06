@@ -176,6 +176,40 @@
     <string name="menu_settings">Einstellungen</string>
     <string name="settings_title">Einstellungen</string>
     <string name="settings_location">Speicherort</string>
+    <string name="settings_backup_section">Sicherung</string>
+    <string name="settings_backup_interval">Automatische Sicherung</string>
+    <string name="settings_backup_interval_title">Intervall für Sicherungskopie</string>
+    <string name="settings_backups">Sicherungen</string>
+    <string name="backup_interval_off">Aus</string>
+    <string name="backup_interval_1">1 Minute</string>
+    <string name="backup_interval_2">2 Minuten</string>
+    <string name="backup_interval_5_default">5 Minuten (Standard)</string>
+    <string name="backup_interval_10">10 Minuten</string>
+    <string name="backup_interval_15">15 Minuten</string>
+    <string name="backup_interval_30">30 Minuten</string>
+    <plurals name="backup_interval_minutes">
+        <item quantity="one">%d Minute</item>
+        <item quantity="other">%d Minuten</item>
+    </plurals>
+    <plurals name="backup_count">
+        <item quantity="one">%d Sicherung</item>
+        <item quantity="other">%d Sicherungen</item>
+    </plurals>
+    <plurals name="backup_notes_count">
+        <item quantity="one">%d gesicherte Notiz</item>
+        <item quantity="other">%d gesicherte Notizen</item>
+    </plurals>
+    <string name="backup_summary_with_size">%1$s (%2$s)</string>
+    <string name="backup_none">Keine Sicherungen</string>
+    <string name="backup_delete_all_action">Alle Sicherungen löschen</string>
+    <string name="backup_delete_all_title">Alle Sicherungen löschen?</string>
+    <string name="backup_delete_all_message">Alle automatischen Sicherungskopien aller Notizen werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</string>
+    <string name="backups_title">Sicherungen</string>
+    <string name="backups_empty_state">Keine Sicherungskopien vorhanden</string>
+    <string name="backup_restore_as_copy">Wiederherstellen als Kopie</string>
+    <string name="backup_restored_success">Als Kopie wiederhergestellt</string>
+    <string name="backup_restore_title_format">%1$s (Sicherung %2$s)</string>
+    <string name="backup_saved_format">gesichert %1$s</string>
     <string name="settings_trash">Papierkorb</string>
     <string name="settings_version">Version</string>
     <string name="settings_about">Info</string>

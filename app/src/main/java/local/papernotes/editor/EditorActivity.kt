@@ -20,6 +20,8 @@ import android.widget.Toast
 import local.papernotes.NotesLocation
 import local.papernotes.R
 import local.papernotes.home.PreviewStamper
+import local.papernotes.storage.BackupPolicy
+import local.papernotes.storage.BackupStore
 import local.papernotes.storage.NoteRepository
 import local.papernotes.storage.PnoteCodec
 import local.papernotes.storage.PnoteResult
@@ -37,6 +39,17 @@ class EditorActivity : Activity() {
     private var io: ExecutorService? = null
     private var session: NoteSession? = null
     private lateinit var tools: EditorToolState
+
+    private var lastBackupTime = 0L
+    private var modifiedSinceBackup = false
+    private val backupTick = object : Runnable {
+        override fun run() {
+            checkAndRunBackup(isClosing = false)
+            if (!isDestroyed && !isFinishing) {
+                ui.postDelayed(this, BACKUP_TICK_MS)
+            }
+        }
+    }
 
     private lateinit var canvas: PageCanvasView
     private lateinit var textTitle: TextView
@@ -306,8 +319,13 @@ class EditorActivity : Activity() {
         val s = NoteSession(note, { repo.save(stamper.stamp(it)) }, executor, HandlerScheduler(ui))
         s.onSaveResult = { ok -> if (!ok) ui.post { if (!isDestroyed) toast(R.string.error_save) } }
         session = s
+        lastBackupTime = System.currentTimeMillis()
+        modifiedSinceBackup = false
+        ui.removeCallbacks(backupTick)
+        ui.postDelayed(backupTick, BACKUP_TICK_MS)
         canvas.onChanged = { strokes ->
             s.onStrokesChanged(strokes)
+            modifiedSinceBackup = true
             updateChrome()
             if (tools.barVisible && !tools.barPinned) {
                 tools.onContentChanged()
@@ -329,7 +347,10 @@ class EditorActivity : Activity() {
     private fun switchPage(action: (NoteSession) -> Boolean) {
         val s = session ?: return
         canvas.flush()
-        if (action(s)) showCurrentPage()
+        if (action(s)) {
+            modifiedSinceBackup = true
+            showCurrentPage()
+        }
     }
 
     /** Vorlagendialog; wie alle Overlays mit [overlayOpened]/[overlayClosed] gekoppelt, damit der Stift die Knöpfe bedienen kann. */
@@ -338,7 +359,10 @@ class EditorActivity : Activity() {
         val page = s.currentPage
         val dialog = TemplateDialog(this, page.template, page.width, page.height) { template, allPages ->
             canvas.flush()
-            if (s.setTemplate(template, allPages)) canvas.setTemplate(s.currentPage.template)
+            if (s.setTemplate(template, allPages)) {
+                modifiedSinceBackup = true
+                canvas.setTemplate(s.currentPage.template)
+            }
         }
         dialog.onDismiss = { overlayClosed() }
         overlayOpened()
@@ -370,7 +394,9 @@ class EditorActivity : Activity() {
             }
 
             override fun setBookmark(index: Int, bookmarked: Boolean) {
-                s.setBookmark(index, bookmarked)
+                if (s.setBookmark(index, bookmarked)) {
+                    modifiedSinceBackup = true
+                }
             }
         })
         sidebar.onDismiss = { overlayClosed() }
@@ -425,10 +451,36 @@ class EditorActivity : Activity() {
         persist()
     }
 
+    private fun checkAndRunBackup(isClosing: Boolean) {
+        val s = session ?: return
+        if (s.hasUnsavedChanges) modifiedSinceBackup = true
+        val prefs = getSharedPreferences(PREFS_SETTINGS, MODE_PRIVATE)
+        val intervalMinutes = prefs.getInt(BackupPolicy.PREF_KEY_INTERVAL_MINUTES, BackupPolicy.DEFAULT_INTERVAL_MINUTES)
+        val now = System.currentTimeMillis()
+        if (!BackupPolicy.shouldBackup(now, lastBackupTime, intervalMinutes, modifiedSinceBackup)) return
+
+        if (isClosing) canvas.flush() // im laufenden Betrieb nicht in den Stift-Strich eingreifen
+        s.save()
+        val noteId = s.note.id
+        val root = NotesLocation.root(this)
+        modifiedSinceBackup = false
+        lastBackupTime = now
+
+        val executor = io ?: return
+        executor.execute {
+            val file = NoteRepository(root).noteFile(noteId) ?: return@execute
+            try {
+                BackupStore(root).backup(noteId, file, now)
+            } catch (ignored: Exception) {
+            }
+        }
+    }
+
     private fun persist() {
         val s = session ?: return
         canvas.flush()
         s.save()
+        checkAndRunBackup(isClosing = true)
     }
 
     override fun onResume() {
@@ -437,6 +489,8 @@ class EditorActivity : Activity() {
     }
 
     override fun onDestroy() {
+        ui.removeCallbacks(backupTick)
+        checkAndRunBackup(isClosing = true)
         if (::popup.isInitialized && popup.isShowing) popup.dismiss()
         session?.close()
         session?.onSaveResult = null
@@ -463,6 +517,8 @@ class EditorActivity : Activity() {
     companion object {
         private const val EXTRA_NOTE_ID = "local.papernotes.NOTE_ID"
         private const val PREFS_NAME = "editor_tools"
+        private const val PREFS_SETTINGS = "settings"
+        private const val BACKUP_TICK_MS = 10_000L
 
         // Erst nach dem Laden der Notiz bedienbar. Werkzeuge und Menü sind immer aktiv; Platzhalter bleiben deaktiviert.
         private val CONTROL_IDS = intArrayOf(
