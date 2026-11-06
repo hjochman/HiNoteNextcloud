@@ -87,8 +87,9 @@ class NoteSession(
     /**
      * Fügt hinter der aktuellen Seite eine leere Seite ein (gleiche Größe und Vorlage) und wechselt dorthin.
      * Annahme: Die neue Seite übernimmt die Vorlage der aktuellen Seite (so ist es in HiNote üblich).
+     * Mit [atEnd] wird sie stattdessen als letzte Seite angehängt (Seitenleiste "Neue Seite").
      */
-    fun addPage(): Page {
+    fun addPage(atEnd: Boolean = false): Page {
         val cur = currentPage
         val page = Page(
             id = UUID.randomUUID().toString(),
@@ -98,9 +99,10 @@ class NoteSession(
             strokes = emptyList(),
             bookmarked = false,
         )
-        val ids = note.pageIds.toMutableList().also { it.add(pageIndex + 1, page.id) }
+        val at = if (atEnd) pageCount else pageIndex + 1
+        val ids = note.pageIds.toMutableList().also { it.add(at, page.id) }
         note = note.copy(pageIds = ids, pages = note.pages + (page.id to page), modified = clock())
-        pageIndex += 1
+        pageIndex = at
         dirty = true
         save()
         return page
@@ -129,18 +131,35 @@ class NoteSession(
     }
 
     /** Löscht die aktuelle Seite. Die letzte verbleibende Seite kann nicht gelöscht werden (false). */
-    fun deletePage(): Boolean {
-        if (pageCount <= 1) return false
-        val id = note.pageIds[pageIndex]
+    fun deletePage(): Boolean = deletePageAt(pageIndex)
+
+    /**
+     * Löscht die Seite [index] (0-basiert). Die letzte verbleibende Seite und ungültige Indizes ergeben false. Bleibt die
+     * aktuelle Seite erhalten, zeigt [pageIndex] weiter auf sie; wird sie gelöscht, rückt die folgende (bzw. letzte) nach.
+     */
+    fun deletePageAt(index: Int): Boolean {
+        if (pageCount <= 1 || index !in 0 until pageCount) return false
+        val id = note.pageIds[index]
         note = note.copy(
-            pageIds = note.pageIds.filterIndexed { i, _ -> i != pageIndex },
+            pageIds = note.pageIds.filterIndexed { i, _ -> i != index },
             pages = note.pages - id,
             modified = clock(),
         )
         histories.remove(id)
+        if (index < pageIndex) pageIndex -= 1
         if (pageIndex >= pageCount) pageIndex = pageCount - 1
         dirty = true
         save()
+        return true
+    }
+
+    /** Setzt oder entfernt das Lesezeichen der Seite [index]. False bei ungültigem Index oder ohne Änderung. Speichert über den Debounce. */
+    fun setBookmark(index: Int, bookmarked: Boolean): Boolean {
+        if (index !in 0 until pageCount) return false
+        val page = note.pages.getValue(note.pageIds[index])
+        if (page.bookmarked == bookmarked) return false
+        replacePage(page.copy(bookmarked = bookmarked))
+        markDirty()
         return true
     }
 

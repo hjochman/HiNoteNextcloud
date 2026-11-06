@@ -123,6 +123,7 @@ class EditorActivity : Activity() {
         findViewById<View>(R.id.buttonDeletePage).setOnClickListener { confirmDeletePage() }
         findViewById<View>(R.id.buttonMore).setOnClickListener { showMoreMenu(it) }
         findViewById<View>(R.id.buttonTemplate).setOnClickListener { showTemplateDialog() }
+        findViewById<View>(R.id.buttonSidebar).setOnClickListener { showSidebar() }
 
         toolButtons[PageCanvasView.Tool.PEN] = findViewById(R.id.buttonToolPen)
         toolButtons[PageCanvasView.Tool.ERASER] = findViewById(R.id.buttonToolEraser)
@@ -344,6 +345,39 @@ class EditorActivity : Activity() {
         dialog.show()
     }
 
+    /** Seitenleiste über dem Blatt; wie der Vorlagendialog mit [overlayOpened]/[overlayClosed] gekoppelt (Stift bedient die Leiste). */
+    private fun showSidebar() {
+        val s = session ?: return
+        canvas.flush()
+        val loc = IntArray(2)
+        canvas.getLocationOnScreen(loc)
+        val area = Rect(loc[0], loc[1], loc[0] + canvas.width, loc[1] + canvas.height)
+        val sidebar = PageSidebar(this, s, area, object : PageSidebar.Actions {
+            override fun jump(index: Int) {
+                switchPage { it.goToPage(index) }
+            }
+
+            override fun newPage() {
+                switchPage { it.addPage(atEnd = true); true }
+            }
+
+            override fun deletePage(index: Int) {
+                canvas.flush()
+                val wasCurrent = index == s.pageIndex
+                if (s.deletePageAt(index)) {
+                    if (wasCurrent) showCurrentPage() else updateChrome()
+                }
+            }
+
+            override fun setBookmark(index: Int, bookmarked: Boolean) {
+                s.setBookmark(index, bookmarked)
+            }
+        })
+        sidebar.onDismiss = { overlayClosed() }
+        overlayOpened()
+        sidebar.show()
+    }
+
     private fun confirmDeletePage() {
         val s = session ?: return
         if (s.pageCount <= 1) {
@@ -433,7 +467,7 @@ class EditorActivity : Activity() {
         // Erst nach dem Laden der Notiz bedienbar. Werkzeuge und Menü sind immer aktiv; Platzhalter bleiben deaktiviert.
         private val CONTROL_IDS = intArrayOf(
             R.id.buttonPrevPage, R.id.buttonNextPage, R.id.buttonUndo, R.id.buttonRedo, R.id.buttonAddPage,
-            R.id.buttonToolPageAdd, R.id.buttonDeletePage, R.id.buttonTemplate,
+            R.id.buttonToolPageAdd, R.id.buttonDeletePage, R.id.buttonTemplate, R.id.buttonSidebar,
         )
 
         fun intent(context: Context, noteId: String): Intent =

@@ -202,6 +202,68 @@ class NoteSessionTest {
     }
 
     @Test
+    fun setBookmarkSetsRemovesAndSaves() {
+        val p2 = session.addPage()
+        store.saved.clear()
+        assertTrue(session.setBookmark(0, true))
+        assertTrue(session.note.pages.getValue(session.note.pageIds[0]).bookmarked)
+        assertFalse(session.note.pages.getValue(p2.id).bookmarked)
+        assertEquals(1, session.pageIndex)
+        assertTrue(session.hasUnsavedChanges)
+        scheduler.advance(NoteSession.DEBOUNCE_MS)
+        assertEquals(1, store.saved.size)
+        assertTrue(store.saved[0].pages.getValue(store.saved[0].pageIds[0]).bookmarked)
+        assertTrue(session.setBookmark(0, false))
+        assertFalse(session.note.pages.getValue(session.note.pageIds[0]).bookmarked)
+    }
+
+    @Test
+    fun setBookmarkWithoutChangeOrInvalidIndexIsNoop() {
+        assertFalse(session.setBookmark(0, false))
+        assertFalse(session.hasUnsavedChanges)
+        assertFalse(session.setBookmark(5, true))
+        assertFalse(session.setBookmark(-1, true))
+        assertFalse(session.hasUnsavedChanges)
+    }
+
+    @Test
+    fun bookmarkSurvivesStrokeChangesAndPageSwitch() {
+        session.setBookmark(0, true)
+        session.onStrokesChanged(listOf(stroke(1)))
+        session.addPage()
+        session.goToPage(0)
+        assertTrue(session.currentPage.bookmarked)
+        assertEquals(listOf(stroke(1)), session.currentPage.strokes)
+    }
+
+    @Test
+    fun addPageAtEndAppendsAndSwitches() {
+        val p1 = session.currentPage
+        val p2 = session.addPage()
+        session.goToPage(0)
+        val p3 = session.addPage(atEnd = true)
+        assertEquals(listOf(p1.id, p2.id, p3.id), session.note.pageIds)
+        assertEquals(2, session.pageIndex)
+        assertEquals(p3.id, session.currentPage.id)
+    }
+
+    @Test
+    fun deletePageAtKeepsCurrentPageSelected() {
+        val p1 = session.currentPage
+        session.addPage()
+        val p3 = session.addPage()
+        assertEquals(2, session.pageIndex)
+        assertTrue(session.deletePageAt(0))
+        assertEquals(1, session.pageIndex)
+        assertEquals(p3.id, session.currentPage.id)
+        assertFalse(session.note.pages.containsKey(p1.id))
+        assertFalse(session.deletePageAt(7))
+        assertTrue(session.deletePageAt(1))
+        assertEquals(0, session.pageIndex)
+        assertFalse(session.deletePageAt(0))
+    }
+
+    @Test
     fun lastPageCannotBeDeleted() {
         assertFalse(session.deletePage())
         assertEquals(1, session.pageCount)

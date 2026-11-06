@@ -9,6 +9,7 @@ import androidx.core.graphics.createBitmap
 import local.papernotes.editor.TemplateRenderers
 import local.papernotes.editor.templates.TemplateEnv
 import local.papernotes.model.Note
+import local.papernotes.model.Page
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -25,7 +26,11 @@ internal class PreviewRenderer(context: Context) {
     /** Rendert Seite 1 von [note] mit Breite [PREVIEW_WIDTH]; Höhe folgt dem Seitenverhältnis. Null bei Notiz ohne Seite. */
     fun render(note: Note): Bitmap? {
         val page = note.pageIds.firstOrNull()?.let { note.pages[it] } ?: return null
-        val w = PREVIEW_WIDTH
+        return renderPage(page, PREVIEW_WIDTH)
+    }
+
+    /** Rendert eine einzelne Seite (Vorlage + Striche) mit Breite [w]; die Höhe folgt dem Seitenverhältnis. */
+    fun renderPage(page: Page, w: Int): Bitmap {
         val h = max(1, Math.round(w.toFloat() * page.height / page.width))
         val bmp = createBitmap(w, h, Bitmap.Config.RGB_565)
         val canvas = Canvas(bmp)

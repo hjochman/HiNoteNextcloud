@@ -80,12 +80,11 @@
             android:contentDescription="@string/page_add"
             android:src="@drawable/ic_add" />
 
-        <!-- Platzhalter (Phase 3): Seitenleiste -->
+        <!-- Seitenleiste -->
         <ImageButton
             android:id="@+id/buttonSidebar"
             style="@style/Widget.PaperNotes.IconButton"
             android:contentDescription="@string/sidebar"
-            android:enabled="false"
             android:src="@drawable/ic_sidebar" />
 
         <!-- Platzhalter: Menü -->

@@ -214,4 +214,22 @@
     <string name="about_source">Quellcode auf GitHub</string>
     <string name="about_close">Schließen</string>
     <string name="about_no_browser">Kein Browser gefunden.</string>
+    <!-- Seitenleiste im Editor -->
+    <string name="sidebar_tab_pages">Seiten</string>
+    <string name="sidebar_tab_bookmarks">Lesezeichen</string>
+    <string name="sidebar_close">Seitenleiste schließen</string>
+    <string name="sidebar_jump_hint">Seite 1–%1$d</string>
+    <string name="sidebar_jump_go">Gehe zu</string>
+    <string name="sidebar_jump_error" tools:ignore="PluralsCandidate">Bitte eine Seitenzahl von 1 bis %1$d eingeben.</string>
+    <string name="sidebar_new_page">Neue Seite</string>
+    <string name="sidebar_bookmark_set">Lesezeichen setzen</string>
+    <string name="sidebar_bookmark_remove">Lesezeichen entfernen</string>
+    <string name="sidebar_page_menu">Seitenmenü</string>
+    <string name="sidebar_page_label">Seite %1$d</string>
+    <string name="sidebar_page_current">Seite %1$d (aktuell)</string>
+    <string name="sidebar_delete_title">Seite löschen?</string>
+    <string name="sidebar_delete_message" tools:ignore="PluralsCandidate">Seite %1$d mit allen Strichen löschen?</string>
+    <string name="sidebar_no_bookmarks">Keine Lesezeichen. Über das Lesezeichen-Symbol einer Seite lässt sich eines setzen.</string>
+    <string name="sidebar_list_prev">Vorherige Vorschauen</string>
+    <string name="sidebar_list_next">Weitere Vorschauen</string>
 </resources>

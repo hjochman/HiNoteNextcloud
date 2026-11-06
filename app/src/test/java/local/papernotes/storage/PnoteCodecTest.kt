@@ -409,6 +409,31 @@ class PnoteCodecTest {
     }
 
     @Test
+    fun bookmarkRoundtripsAndStaysPerPage() {
+        val base = TestData.bigNote(pages = 3, strokesPerPage = 0)
+        val ids = base.pageIds
+        val note = base.copy(
+            pages = base.pages.mapValues { (id, p) -> p.copy(bookmarked = id == ids[0] || id == ids[2]) },
+        )
+        val back = decode(TestData.encode(note)).valueOrNull()!!
+        assertEquals(listOf(true, false, true), ids.map { back.pages.getValue(it).bookmarked })
+        assertEquals(note, back)
+    }
+
+    @Test
+    fun pageWithoutBookmarkFieldReadsAsNotBookmarked() {
+        val pid = TestData.uuid()
+        val page = """{"template":"blank","width":10,"height":20,"strokes":[]}"""
+        val z = TestData.zip(
+            listOf(
+                "manifest.json" to TestData.manifest(pageIds = listOf(pid), version = PnoteCodec.FORMAT_VERSION),
+                "pages/$pid.json" to page.toByteArray(),
+            ),
+        )
+        assertFalse(decode(z).valueOrNull()!!.pages.getValue(pid).bookmarked)
+    }
+
+    @Test
     fun readSummaryReadsOnlyManifest() {
         val note = TestData.bigNote(pages = 2, strokesPerPage = 1, points = 5, folder = "A/B")
         val file = File(tmp.root, "s.pnote")

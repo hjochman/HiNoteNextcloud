@@ -7,6 +7,11 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Hinzugefügt
+- Phase 3 (3-2): Seitenleiste im Editor (Knopf „Seitenleiste“ in der Kopfzeile, Fenster rechts über dem Blatt, Stift bedient sie, Schreibfläche währenddessen gesperrt) mit den Reitern „Seiten“ und „Lesezeichen“: Sprungfeld mit „Gehe zu“, Seitenvorschauen (Vorlage + Striche über `PreviewRenderer.renderPage`, Hintergrund-Thread, kleiner Speicher-Cache in `PagePreviews`), aktuelle Seite markiert, Blättern per Pfeil statt Scrollen, pro Seite Lesezeichen und Menü (Lesezeichen setzen/entfernen, Seite löschen mit Rückfrage, nicht die letzte), „Neue Seite“ am Ende. Reine Logik in `SidebarLogic`.
+- Lesezeichen als boolesches Feld `bookmarked` je Seite (war im Format und in `Page` schon vorhanden, bleibt Format-Version 2; fehlt das Feld, gilt „kein Lesezeichen“); `NoteSession.setBookmark`, `deletePageAt`, `addPage(atEnd)`.
+- Neue Symbole `ic_bookmark`, `ic_bookmark_outline`; Strings de/en; Tests für `SidebarLogic`, Lesezeichen im Codec und in `NoteSession`.
+
 ### Geändert
 - Phase 3 (3-1): Striche liegen jetzt in Seitenkoordinaten (Seitengröße der `Page`, Standard 1404x1872) statt in Ansichts-Pixeln. Reine Abbildung Seite <-> Ansicht in `PageTransform` (Maßstab + Versatz, Punkte und Strichbreiten); `TrackMapper` und `PageCanvasView` rechnen an der Grenze zur `HWEditView` um, `PageBackgroundView` legt die Vorlage mit derselben Abbildung auf die Seite. Aktuell Maßstab = Ansichtsbreite / Seitenbreite (bei 1404 Pixeln Breite 1:1), Versatz 0.
 - `.pnote` Format-Version 2 (Koordinaten in Seitenkoordinaten). Version 1 wird weiter gelesen (Ansichtsbreite = Seitenbreite, Zahlen unverändert) und beim nächsten Speichern als Version 2 geschrieben; ältere App-Versionen lehnen Version 2 ab.

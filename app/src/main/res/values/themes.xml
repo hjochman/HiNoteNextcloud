@@ -26,6 +26,29 @@
         <item name="android:windowContentTransitions">false</item>
     </style>
 
+    <!-- Seitenleiste des Editors: Fenster rechts über dem Blatt, ohne Animation, Abdunkelung und Schatten (E-Ink). -->
+    <style name="Theme.PaperNotes.Sidebar" parent="android:Theme.Material.Light.Dialog.NoActionBar">
+        <item name="android:windowBackground">@drawable/bg_sidebar</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowElevation">0dp</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowContentTransitions">false</item>
+    </style>
+
+    <!-- Reiter der Seitenleiste: aktiver Reiter schwarz mit weißer Schrift (selected). -->
+    <style name="Widget.PaperNotes.SidebarTab" parent="">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/bg_tool</item>
+        <item name="android:gravity">center</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:textColor">@color/icon_tint</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
     <!-- Textknopf am Dialogende: mindestens 48dp hoch, kein Ripple. -->
     <style name="Widget.PaperNotes.DialogButton" parent="">
         <item name="android:layout_width">0dp</item>

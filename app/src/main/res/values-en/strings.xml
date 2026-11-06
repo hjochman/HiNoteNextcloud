@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">PaperNotes by BOB</string>
     <string name="new_note">New note</string>
     <string name="new_note_title">Note</string>
@@ -214,4 +214,22 @@
     <string name="about_source">Source code on GitHub</string>
     <string name="about_close">Close</string>
     <string name="about_no_browser">No browser found.</string>
+    <!-- Page sidebar in the editor -->
+    <string name="sidebar_tab_pages">Pages</string>
+    <string name="sidebar_tab_bookmarks">Bookmarks</string>
+    <string name="sidebar_close">Close page sidebar</string>
+    <string name="sidebar_jump_hint">Page 1–%1$d</string>
+    <string name="sidebar_jump_go">Go to</string>
+    <string name="sidebar_jump_error" tools:ignore="PluralsCandidate">Please enter a page number from 1 to %1$d.</string>
+    <string name="sidebar_new_page">New page</string>
+    <string name="sidebar_bookmark_set">Add bookmark</string>
+    <string name="sidebar_bookmark_remove">Remove bookmark</string>
+    <string name="sidebar_page_menu">Page menu</string>
+    <string name="sidebar_page_label">Page %1$d</string>
+    <string name="sidebar_page_current">Page %1$d (current)</string>
+    <string name="sidebar_delete_title">Delete page?</string>
+    <string name="sidebar_delete_message" tools:ignore="PluralsCandidate">Delete page %1$d with all its strokes?</string>
+    <string name="sidebar_no_bookmarks">No bookmarks. Use the bookmark icon of a page to add one.</string>
+    <string name="sidebar_list_prev">Previous previews</string>
+    <string name="sidebar_list_next">More previews</string>
 </resources>

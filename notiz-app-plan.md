@@ -140,7 +140,7 @@ Referenz: Menü `⋮` der Startseite in HiNote enthält "Notizen auswählen", "S
 - Radierer in drei Stilen (Standard, Fläche, Striche) mit gebundenem Weiß: **fertig** (Auswahl und Größe in der Radierer-Leiste, Einstellung wird gemerkt). **Offen:** eigener Radierkreis, denn er fehlt im Schnellpfad.
 - Lasso: auswählen, verschieben, skalieren, löschen. **Offen.** Die Lasso-Unterleiste von HiNote ist noch nicht erfasst (ansehen vor dem Bau).
 - Vorlagen: **fertig** (16 Vorlagen in 4 Gruppen, Dialog mit Pfeilen und "Für alle Seiten übernehmen", eigene Zeichnung). Marker hat noch keine Alpha-Logik.
-- Seitenleiste mit Vorschauen, Neue Seite, Löschen, Lesezeichen, Sprungfeld. **Offen.** Neue Seite und Löschen gibt es schon über die Kopfzeile; die Leiste selbst fehlt.
+- Seitenleiste mit Vorschauen, Neue Seite, Löschen, Lesezeichen, Sprungfeld: **fertig (3-2, auf dem Tablet geprüft)**: Reiter Seiten/Lesezeichen, Sprungfeld, Vorschauliste mit Blättern per Pfeil, Menü pro Seite, Neue Seite am Ende. Seiten verschieben ist nicht gebaut.
 - Zoom und Verschieben durch Umrechnen der Tracks. **Offen (3-3).** Schritt 3-1 ist im Code umgesetzt (auf dem Tablet noch nicht geprüft): Striche liegen in Seitenkoordinaten (Seitengröße der `Page`, Standard 1404x1872), `PageTransform` bildet Seite <-> Ansicht ab (Maßstab + Versatz, Breiten skalieren mit), `TrackMapper`/`PageCanvasView`/`PageBackgroundView` wenden sie an; Zoom ändert später nur diese Abbildung. Format-Version 2; Version 1 (Ansichts-Pixel, Ansichtsbreite = Seitenbreite) wird beim Lesen als Seitenkoordinaten übernommen.
 
 ### Phase 4: Text, Bild, Audio
