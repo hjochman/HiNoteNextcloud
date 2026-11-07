@@ -73,6 +73,50 @@ internal object EinkDialog {
         return dialog
     }
 
+    /** Meldungsdialog mit einer Schaltfläche [ok] (Ergebnisanzeige, keine Rückfrage). */
+    fun message(activity: Activity, title: String, message: String, ok: String, onDismiss: () -> Unit = {}): Dialog {
+        val density = activity.resources.displayMetrics.density
+        fun dp(v: Int) = Math.round(v * density)
+        val dialog = Dialog(activity, R.style.Theme_PaperNotes_TemplateDialog)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        val body = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(20), dp(24), dp(16))
+        }
+        body.addView(
+            TextView(activity).apply {
+                text = title
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                setTextColor(activity.getColor(R.color.black))
+                setTypeface(typeface, Typeface.BOLD)
+            },
+        )
+        body.addView(
+            TextView(activity).apply {
+                text = message
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                setTextColor(activity.getColor(R.color.black))
+                setPadding(0, dp(12), 0, 0)
+            },
+        )
+        root.addView(body)
+        root.addView(View(activity).apply { setBackgroundColor(activity.getColor(R.color.black)) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+        val button = TextView(activity, null, 0, R.style.Widget_PaperNotes_DialogButton).apply {
+            text = ok
+            setOnClickListener { dialog.dismiss() }
+        }
+        root.addView(button, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)))
+        dialog.setOnDismissListener { onDismiss() }
+        dialog.setContentView(root)
+        dialog.window?.let { w ->
+            w.setLayout(minOf(activity.resources.displayMetrics.widthPixels - dp(48), dp(520)), ViewGroup.LayoutParams.WRAP_CONTENT)
+            w.setWindowAnimations(0)
+        }
+        dialog.show()
+        return dialog
+    }
+
     /** Fortschrittsdialog: nur Text (keine Animation, E-Ink), unten "Abbrechen". */
     class Progress(val dialog: Dialog, private val message: TextView) {
         fun setText(text: String) {

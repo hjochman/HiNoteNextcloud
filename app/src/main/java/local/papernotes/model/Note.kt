@@ -4,6 +4,7 @@ package local.papernotes.model
  * Eine Notiz mit Seiten in der Reihenfolge von [pageIds].
  * [folderPath]: "" = Wurzel, sonst "BIT" oder "A/B". Zeiten in Millisekunden seit 1970.
  * [preview]: JPEG der ersten Seite (wird als `preview.jpg` im Paket gespeichert), null wenn noch keine vorliegt.
+ * [importSource]: optionale Herkunftskennung einer importierten Notiz (z. B. `hinote:<noteId>`), um Doppelimporte zu erkennen.
  */
 data class Note(
     val id: String,
@@ -16,6 +17,7 @@ data class Note(
     val pageIds: List<String>,
     val pages: Map<String, Page>,
     val preview: ByteArray? = null,
+    val importSource: String? = null,
 ) {
     // Eigene Gleichheit, weil ein ByteArray in einer data class sonst nur per Referenz verglichen würde.
     override fun equals(other: Any?): Boolean {
@@ -24,7 +26,7 @@ data class Note(
         return id == other.id && title == other.title && folderPath == other.folderPath &&
             created == other.created && modified == other.modified && favorite == other.favorite &&
             pinned == other.pinned && pageIds == other.pageIds && pages == other.pages &&
-            preview.contentEquals(other.preview)
+            preview.contentEquals(other.preview) && importSource == other.importSource
     }
 
     override fun hashCode(): Int {
@@ -38,6 +40,7 @@ data class Note(
         h = 31 * h + pageIds.hashCode()
         h = 31 * h + pages.hashCode()
         h = 31 * h + preview.contentHashCode()
+        h = 31 * h + importSource.hashCode()
         return h
     }
 }

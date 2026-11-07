@@ -33,6 +33,7 @@ import android.widget.Toast
 import local.papernotes.about.AboutActivity
 import local.papernotes.editor.EditorActivity
 import local.papernotes.export.ExportFlow
+import local.papernotes.hinote.HinoteImportFlow
 import local.papernotes.home.DateLabels
 import local.papernotes.home.Entry
 import local.papernotes.home.FolderItem
@@ -113,6 +114,7 @@ class MainActivity : Activity() {
     private var permissionAsked = false
 
     private val exportFlow by lazy { ExportFlow(this) }
+    private val importFlow by lazy { HinoteImportFlow(this, { repo }) { load() } }
     private val selection = SelectionState()
     private var tiles: HomeTiles? = null
 
@@ -272,6 +274,12 @@ class MainActivity : Activity() {
     }
 
     @Deprecated("Activity-API ohne AndroidX; hier bewusst genutzt.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        importFlow.onPicked(requestCode, resultCode, data)
+    }
+
+    @Deprecated("Activity-API ohne AndroidX; hier bewusst genutzt.")
     override fun onBackPressed() {
         when {
             selection.active -> endSelection()
@@ -284,6 +292,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         loadToken++
         exportFlow.cancel()
+        importFlow.cancel()
         io.shutdown()
         loader?.shutdown()
         super.onDestroy()
@@ -572,6 +581,8 @@ class MainActivity : Activity() {
             MenuEntry(R.drawable.ic_folder_add, getString(R.string.new_folder)) { askNewFolder() },
             MenuEntry(R.drawable.ic_select_all, getString(R.string.menu_select_notes)) { startSelection() },
             MenuEntry(R.drawable.ic_sort, getString(R.string.sort_by)) { showSortMenu(anchor) },
+            MenuEntry(R.drawable.ic_note_add, getString(R.string.menu_import_hinote)) { importFlow.pick() },
+            MenuEntry(R.drawable.ic_folder, getString(R.string.menu_import_hinote_folder)) { importFlow.importFromFolder() },
             MenuEntry(R.drawable.ic_settings, getString(R.string.menu_settings)) { startActivity(Intent(this, SettingsActivity::class.java)) },
             MenuEntry(R.drawable.ic_info, getString(R.string.menu_about)) { startActivity(Intent(this, AboutActivity::class.java)) },
         ),

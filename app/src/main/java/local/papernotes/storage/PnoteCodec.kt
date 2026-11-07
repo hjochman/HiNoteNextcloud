@@ -37,6 +37,7 @@ data class NoteSummary(
     val favorite: Boolean,
     val pinned: Boolean,
     val pageCount: Int,
+    val importSource: String? = null,
 )
 
 /** Interne Abkürzung für Fehlerabbruch innerhalb von Parsern. Ohne Stacktrace und ohne Meldung. */
@@ -46,7 +47,8 @@ internal class PnoteException(val error: PnoteError) : RuntimeException(null, nu
  * Liest und schreibt `.pnote` (ZIP mit JSON). Format Version 2 (Version 1 wird gelesen und migriert):
  *
  * ```
- * manifest.json        version, id, title, folderPath, created, modified, favorite, pinned, pageIds
+ * manifest.json        version, id, title, folderPath, created, modified, favorite, pinned, pageIds, importSource (optional,
+ *                      z. B. `hinote:<noteId>`; fehlt bei selbst erstellten Notizen, ältere Leser ignorieren das Feld)
  * preview.jpg          optional, JPEG der ersten Seite; steht direkt hinter dem Manifest, damit Leser (Liste, Nextcloud-Plugin)
  *                      sie lesen können, ohne die Seiten zu entpacken
  * pages/<uuid>.json    template, width, height, bookmarked, strokes [{t, w, c, p:[[x,y,time,pressure],...]}]
@@ -82,6 +84,7 @@ object PnoteCodec {
     private val PAGE_ENTRY = Regex("pages/($UUID_PATTERN)\\.json")
     private val MEDIA_ENTRY = Regex("media/$UUID_PATTERN\\.[a-z0-9]{1,8}")
     private val TEMPLATE_REGEX = Regex("[a-z0-9_]{1,32}")
+    private val IMPORT_SOURCE_REGEX = Regex("[a-z]{1,16}:[0-9A-Za-z._-]{1,64}")
     private const val MAX_NAME_LENGTH = 200
 
     /**
@@ -93,6 +96,9 @@ object PnoteCodec {
 
     /** IDs sind Pfadbestandteil und müssen daher kleingeschriebene UUIDs sein. */
     fun isValidId(id: String): Boolean = UUID_REGEX.matches(id)
+
+    /** Herkunftskennung `<quelle>:<kennung>`, z. B. `hinote:4ff509b4…`; nur Kleinbuchstaben-Quelle und einfache Zeichen. */
+    fun isValidImportSource(source: String): Boolean = IMPORT_SOURCE_REGEX.matches(source)
 
     /** Prüft nur die JPEG-Kennung (FF D8 FF); die Vorschau wird nie als Pfad oder Befehl benutzt. */
     fun isJpeg(bytes: ByteArray): Boolean =
@@ -151,6 +157,7 @@ object PnoteCodec {
             if (!isJpeg(it)) throw PnoteException(PnoteError.InvalidNote)
         }
         if (!FolderPath.isValid(note.folderPath)) throw PnoteException(PnoteError.InvalidFolder)
+        note.importSource?.let { if (!isValidImportSource(it)) throw PnoteException(PnoteError.InvalidNote) }
         if (note.pageIds.size > MAX_PAGES) throw PnoteException(PnoteError.LimitExceeded)
         if (note.pageIds.toSet().size != note.pageIds.size || note.pageIds.toSet() != note.pages.keys) {
             throw PnoteException(PnoteError.InvalidNote)
@@ -213,6 +220,7 @@ object PnoteCodec {
         w.name("modified").value(note.modified)
         w.name("favorite").value(note.favorite)
         w.name("pinned").value(note.pinned)
+        note.importSource?.let { w.name("importSource").value(it) }
         w.name("pageIds").beginArray()
         note.pageIds.forEach { w.value(it) }
         w.endArray()
@@ -301,7 +309,7 @@ object PnoteCodec {
                 PnoteResult.Ok(
                     NoteSummary(
                         manifest.id, manifest.title, manifest.folderPath, manifest.created, manifest.modified,
-                        manifest.favorite, manifest.pinned, manifest.pageIds.size,
+                        manifest.favorite, manifest.pinned, manifest.pageIds.size, manifest.importSource,
                     ),
                 )
             }
@@ -335,6 +343,7 @@ object PnoteCodec {
                 pageIds = manifest.pageIds,
                 pages = pages,
                 preview = unpacked.preview,
+                importSource = manifest.importSource,
             ),
         )
     } catch (e: PnoteException) {
@@ -397,7 +406,7 @@ object PnoteCodec {
     }
 
     /** Liest den aktuellen Eintrag, bricht beim Überschreiten von [limit] ab; ohne [keep] werden Daten verworfen. */
-    private fun readLimited(zip: ZipInputStream, limit: Long, keep: Boolean): LimitedData {
+    internal fun readLimited(zip: InputStream, limit: Long, keep: Boolean): LimitedData {
         val buffer = ByteArray(8192)
         val collected = if (keep) java.io.ByteArrayOutputStream() else null
         var count = 0L
@@ -411,7 +420,7 @@ object PnoteCodec {
         return LimitedData(count.toInt(), collected?.toByteArray() ?: ByteArray(0))
     }
 
-    private class LimitedData(val size: Int, val bytes: ByteArray)
+    internal class LimitedData(val size: Int, val bytes: ByteArray)
 
     private class Manifest(
         val version: Int,
@@ -423,6 +432,7 @@ object PnoteCodec {
         val favorite: Boolean,
         val pinned: Boolean,
         val pageIds: List<String>,
+        val importSource: String?,
     )
 
     private fun reader(bytes: ByteArray) = JsonReader(InputStreamReader(ByteArrayInputStream(bytes), UTF_8))
@@ -471,6 +481,7 @@ object PnoteCodec {
         var favorite = false
         var pinned = false
         var pageIds: List<String>? = null
+        var importSource: String? = null
         reader(bytes).use { r ->
             r.beginObject()
             while (r.hasNext()) {
@@ -482,6 +493,7 @@ object PnoteCodec {
                     "modified" -> modified = r.nextLong()
                     "favorite" -> favorite = r.nextBoolean()
                     "pinned" -> pinned = r.nextBoolean()
+                    "importSource" -> importSource = r.nextString().takeIf { isValidImportSource(it) }
                     "pageIds" -> {
                         val list = ArrayList<String>()
                         r.beginArray()
@@ -513,6 +525,7 @@ object PnoteCodec {
             favorite,
             pinned,
             ids,
+            importSource,
         )
     }
 

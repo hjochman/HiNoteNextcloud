@@ -104,6 +104,16 @@
     </plurals>
     <string name="error_export">The export failed.</string>
     <string name="error_export_partial">Not all notes could be exported.</string>
+    <string name="menu_import_hinote">Import HiNote notes …</string>
+    <string name="menu_import_hinote_folder">Import from Documents/hinote/custom</string>
+    <string name="import_title">HiNote import</string>
+    <string name="import_progress_title">Importing notes</string>
+    <string name="import_result">%1$d imported, %2$d skipped (already imported), %3$d with warnings.</string>
+    <string name="import_result_failed">%1$d could not be read.</string>
+    <string name="import_result_folder">The notes are in the folder “%1$s”. Review them there, then move them.</string>
+    <string name="import_error_none">No .hinote files found.</string>
+    <string name="import_error_failed">The import failed.</string>
+    <string name="import_error_picker">No app found to pick files.</string>
     <string name="tool_pen">Pen</string>
     <string name="tool_eraser">Eraser</string>
     <string name="tool_lasso">Lasso</string>
