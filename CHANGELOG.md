@@ -7,6 +7,8 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-06
+
 ### Hinzugefügt
 - Import, Gesamtimport: Altformat `HWEINKBYTE` im `HinoteBinParser` (Kotlin) und in `tools/hinote_bin.py` (`parse_legacy_bin`): x/y normiert 0..1 × Kopfbreite/-höhe (1404 × 1677 bzw. 1460), ARGB-Int, Zeit relativ zum Strichanfang, gleiche Sicherheitsprüfungen wie beim neuen Format (Größenfelder vor Allokation, Strich-/Punktlimits, Dateiende exakt). Seiten mit Seitenverhältnis 0,9616 und 0,8357 bleiben oben ausgerichtet, Maßstab 1404/Kopfbreite. `python3 tools/hinote_bin.py check` liest damit alle 34 Notizen.
 - Ordnerimport rekursiv (`HinoteFolderScanner`, `HinoteImportPlanner`): Unterverzeichnisse von `Documents/hinote/custom` (Tiefe 3, keine Symlinks) werden Unterordner von `HiNote-Import` (z. B. `HiNote-Import/BIT`), ungültige Namen und Wurzeldateien → `HiNote-Import`. Mehrere Dateien derselben `noteId` im Lauf: neuester Dateizeitstempel, dann meiste Seiten (Regel in `docs/hinote-bin-format.md` 6.1). Bereits importierte Notizen werden nicht verschoben.

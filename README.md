@@ -12,7 +12,11 @@ Notiz-App für das Huawei Paper (HMW-W09, Android 10, E-Ink) als Ersatz für HiN
 - Startseite mit Ordnern, Raster- und Listenansicht, Suche, Sortierung, Favoriten und Fixieren
 - Mehrfachauswahl mit Teilen, Verschieben und Löschen
 - Papierkorb (wiederherstellen, endgültig löschen, leeren), Einstellungen und Über-Seite
-- Offen: Seitenleiste, Zoom, Textbox/Bild/Audio, Export (Bild/PDF), Nextcloud-Sync, Übernahme der HiNote-Notizen (siehe `notiz-app-plan.md`)
+- Seitenleiste mit Seitenvorschauen und Lesezeichen; Striche in Seitenkoordinaten
+- Automatische Sicherungskopien (Intervall einstellbar, Sicherungen ansehen, als Kopie wiederherstellen)
+- PDF-Export (Teilen oder Speichern in `Documents/PaperNotesPDF`)
+- Import von HiNote-Exporten (`.hinote`, inkl. Altformat und Unterordner); Bilder und Textboxen werden noch nicht übernommen, die Strichbreite ist noch nicht kalibriert
+- Offen: Zoom/Verschieben, Radierkreis, Lasso-Unterleiste, Textbox/Bild/Audio; Nextcloud-Sync und Plugin sind zurückgestellt, bis die App final ist (siehe `notiz-app-plan.md`)
 
 ## Bauen
 

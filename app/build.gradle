@@ -20,7 +20,7 @@ android {
         applicationId 'local.papernotes'
         minSdk 29
         targetSdk 29
-        versionCode 2
+        versionCode 3
         versionName appVersionName
     }
 

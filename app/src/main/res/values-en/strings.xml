@@ -266,12 +266,13 @@
     <string name="about_news_title">New in version %1$s</string>
     <string name="about_bullet_format">• %1$s</string>
     <string-array name="about_news_items">
-        <item>Multi-select with share, move and delete</item>
-        <item>Trash view: restore and delete permanently</item>
-        <item>Settings</item>
-        <item>About page</item>
+        <item>Automatic backup with adjustable interval</item>
+        <item>PDF export</item>
+        <item>Sidebar with bookmarks</item>
+        <item>Import of HiNote notes</item>
+        <item>Strokes in page coordinates</item>
     </string-array>
-    <string name="about_description">PaperNotes by BOB is a note-taking app for handwritten notes on the Huawei Paper (E-Ink). Notes are stored as files in the Documents/PaperNotes folder and can be organized in folders, shared and restored from the trash.</string>
+    <string name="about_description">PaperNotes by BOB is a note-taking app for handwritten notes on the Huawei Paper (E-Ink). Notes are stored as files in the Documents/PaperNotes folder and can be organized in folders, shared, exported as PDF and restored from the trash. Automatic backups and import of HiNote notes are built in.</string>
     <string name="about_license">Free software under the GNU General Public License v3.0 or later. Copyright © 2025 hjochman. This program is distributed without any warranty.</string>
     <string name="about_source">Source code on GitHub</string>
     <string name="about_close">Close</string>
