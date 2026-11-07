@@ -172,7 +172,7 @@ class HinoteImportTest {
             repo, "Fallback", onProgress = { done, _ -> progress.add(done) },
         )
         assertEquals(HinoteImportReport(imported = 2, skipped = 1, withWarnings = 0, failed = 1), first)
-        assertEquals(listOf(1, 2, 3, 4), progress)
+        assertEquals(listOf(1, 2), progress) // Fortschritt zählt nur die zu importierenden Dateien (Duplikat und kaputte Datei fallen vorher heraus)
         assertEquals(2, repo.list(HinoteImporter.TARGET_FOLDER).valueOrNull()!!.size)
         // zweiter Lauf: alles bereits vorhanden
         val second = HinoteImportRunner.run(listOf(source("a", a), source("b", b)), repo, "Fallback")
@@ -197,39 +197,112 @@ class HinoteImportTest {
         }
     }
 
-    /** Alle echten Exporte (git-ignoriert); ohne die Dateien wird der Test übersprungen. */
     @Test
-    fun realExportsMatchPythonCount() {
+    fun legacyPageIsImportedWithTopAlignedScaleOne() {
+        val legacy = HinoteTestData.legacyBin(
+            listOf(HinoteTestData.LS(listOf(HinoteTestData.LP(0.5f, 0.5f, 1000L, 0.4f), HinoteTestData.LP(1f, 1f, 1030L)), argb = 0xFF505050.toInt(), width = 4f)),
+            h = 1460,
+        )
+        val container = read(HinoteTestData.hinote(bin1 = legacy)).valueOrNull()!!
+        val imported = HinoteImporter.importNote(container, "HiNote-Import", "x", 1L)
+        assertEquals(0, imported.warnings)
+        val page = imported.note.pages.getValue(imported.note.pageIds[0])
+        assertEquals(1404, page.width)
+        assertEquals(1872, page.height)
+        val s = page.strokes.single()
+        assertEquals(0xFF505050.toInt(), s.color)
+        assertEquals(4f * HinoteImporter.STROKE_WIDTH_FACTOR, s.width, 0f)
+        assertEquals(702f, s.points[0].x, 0.01f) // 0,5 * 1404
+        assertEquals(730f, s.points[0].y, 0.01f) // 0,5 * 1460, oben ausgerichtet
+        assertEquals(1404f, s.points[1].x, 0.01f)
+        assertEquals(1460f, s.points[1].y, 0.01f)
+        assertEquals(30L, s.points[1].time) // relativ zum Strichanfang
+    }
+
+    @Test
+    fun brokenLegacyBinBecomesWarning() {
+        val legacy = HinoteTestData.legacyBin(listOf(HinoteTestData.LS(listOf(HinoteTestData.LP(0f, 0f), HinoteTestData.LP(1f, 1f)))))
+        val container = read(HinoteTestData.hinote(bin1 = legacy + byteArrayOf(0))).valueOrNull()!!
+        assertEquals(1, HinoteImporter.importNote(container, "HiNote-Import", "x", 1L).warnings)
+    }
+
+    @Test
+    fun runnerPlacesNotesInTheFolderOfTheirSource() {
+        val repo = NoteRepository(tmp.newFolder("notes2"))
+        val a = HinoteTestData.hinote()
+        val b = HinoteTestData.hinote(noteId = "e".repeat(32), title = "Zweite")
+        val report = HinoteImportRunner.run(
+            listOf(
+                HinoteImportSource("a", "HiNote-Import/BIT", 0, true) { ByteArrayInputStream(a) },
+                HinoteImportSource("b") { ByteArrayInputStream(b) },
+            ),
+            repo, "Fallback",
+        )
+        assertEquals(2, report.imported)
+        assertEquals(1, repo.list("HiNote-Import/BIT").valueOrNull()!!.size)
+        assertEquals(1, repo.list("HiNote-Import").valueOrNull()!!.size)
+    }
+
+    @Test
+    fun runnerKeepsOnlyNewestFileOfTheSameNoteId() {
+        val repo = NoteRepository(tmp.newFolder("notes3"))
+        val old = HinoteTestData.hinote(title = "Alt")
+        val new = HinoteTestData.hinote(title = "Neu")
+        val report = HinoteImportRunner.run(
+            listOf(
+                HinoteImportSource("flach", "HiNote-Import", lastModified = 100, inSubfolder = false) { ByteArrayInputStream(old) },
+                HinoteImportSource("BIT/neu", "HiNote-Import/BIT", lastModified = 200, inSubfolder = true) { ByteArrayInputStream(new) },
+            ),
+            repo, "Fallback",
+        )
+        assertEquals(HinoteImportReport(imported = 1, skipped = 1, withWarnings = 0, failed = 0), report)
+        val only = repo.listAll("").valueOrNull()!!.single()
+        assertEquals("Neu", only.title)
+        assertEquals("HiNote-Import/BIT", only.folderPath)
+    }
+
+    @Test
+    fun randomLegacyGarbageNeverThrows() {
+        val rnd = Random(5)
+        repeat(200) {
+            val bytes = "HWEINKBYTE".toByteArray() + ByteArray(rnd.nextInt(300)).also { rnd.nextBytes(it) }
+            HinoteBinParser.parse(bytes)
+        }
+    }
+
+    /**
+     * Alle 34 echten Exporte (`.hinote`-Dateien unter `tmp/device/exp/all/<Ordner>`, git-ignoriert, ohne `_dupes`); ohne die Dateien wird
+     * der Test übersprungen. Zahlen aus `tools/hinote_bin.py` (inkl. Altformat): 71 793 + 18 810 Striche, 264 Seiten, 260 `.bin`.
+     */
+    @Test
+    fun allRealExportsImportWithoutWarnings() {
         val dir = generateSequence(File("").absoluteFile) { it.parentFile }
-            .map { File(it, "tmp/device/exp/custom") }.firstOrNull { it.isDirectory }
-        assumeTrue("tmp/device/exp/custom fehlt", dir != null)
-        val files = dir!!.listFiles { f -> f.name.endsWith(".hinote") }!!.sortedBy { it.name }
-        assumeTrue("keine Exporte", files.isNotEmpty())
-        var bins = 0
-        var pageCount = 0
-        var strokes = 0
-        var points = 0
+            .map { File(it, "tmp/device/exp/all") }.firstOrNull { it.isDirectory }
+        assumeTrue("tmp/device/exp/all fehlt", dir != null)
+        val files = dir!!.listFiles { f -> f.isDirectory && !f.name.startsWith("_") || f.name == "_Wurzel" }!!
+            .flatMap { d -> d.listFiles { f -> f.name.endsWith(".hinote") }!!.toList() }
+        assumeTrue("keine Exporte", files.size == 34)
         var warnings = 0
+        var pageCount = 0
+        var bins = 0
+        var strokes = 0
+        var legacyNotes = 0
+        val ids = HashSet<String>()
         for (f in files) {
             val container = FileInputStream(f).use { HinoteContainerReader.read(it) }.valueOrNull()
             assertNotNull(f.name, container)
-            val imported = HinoteImporter.importNote(container!!, "HiNote-Import", "x", 1L)
+            assertTrue("doppelte noteId in ${f.name}", ids.add(container!!.noteId))
+            val imported = HinoteImporter.importNote(container, "HiNote-Import", "x", 1L)
             warnings += imported.warnings
-            bins += container.pages.count { it.bin != null }
             pageCount += container.pages.size
-            for (page in imported.note.pages.values) {
-                strokes += page.strokes.size
-                points += page.strokes.sumOf { it.points.size }
-            }
+            bins += container.pages.count { it.bin != null }
+            if (container.pages.any { it.bin?.let { b -> String(b, 0, 10) == "HWEINKBYTE" } == true }) legacyNotes++
+            strokes += imported.note.pages.values.sumOf { it.strokes.size }
         }
         assertEquals(0, warnings)
-        if (files.size == 14) {
-            assertEquals(19, pageCount) // 19 Seiten, davon 18 mit .bin (API Gateway, Seite 2, ist leer)
-            assertEquals(18, bins)
-            assertEquals(4607, strokes) // Python: tools/hinote_bin.py check
-            assertEquals(78_119, points)
-        } else {
-            assertTrue(strokes > 0)
-        }
+        assertEquals(264, pageCount)
+        assertEquals(260, bins)
+        assertEquals(8, legacyNotes)
+        assertEquals(71_793 + 18_810, strokes)
     }
 }

@@ -9,14 +9,13 @@ import local.papernotes.NotesLocation
 import local.papernotes.R
 import local.papernotes.storage.NoteRepository
 import java.io.File
-import java.nio.file.Files
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Ablauf "HiNote-Notizen importieren" für die Startseite: Dateiauswahl per Storage Access Framework
- * (`ACTION_OPEN_DOCUMENT`, mehrere Dateien, `.hinote` hat keinen eigenen MIME-Typ) oder direktes Durchsuchen von
- * `Documents/hinote/custom`. Der Import läuft in einem Hintergrund-Thread mit Textfortschritt ("Notiz 3/14", keine Animation,
+ * (`ACTION_OPEN_DOCUMENT`, mehrere Dateien, `.hinote` hat keinen eigenen MIME-Typ) oder direktes, rekursives Durchsuchen von
+ * `Documents/hinote/custom` (Unterverzeichnisse bis Tiefe 3 -> Unterordner von `HiNote-Import`, Regeln in [HinoteImportPlanner]). Der Import läuft in einem Hintergrund-Thread mit Textfortschritt ("Notiz 3/14", keine Animation,
  * abbrechbar); danach zeigt ein Dialog die Zählung. Muss im UI-Thread benutzt werden.
  */
 internal class HinoteImportFlow(private val activity: Activity, private val repo: () -> NoteRepository?, private val onFinished: () -> Unit) {
@@ -51,7 +50,7 @@ internal class HinoteImportFlow(private val activity: Activity, private val repo
         return true
     }
 
-    /** Durchsucht `Documents/hinote/custom` nach `*.hinote` (Datei-API, Legacy-Speicherzugriff) und importiert alle. */
+    /** Durchsucht `Documents/hinote/custom` rekursiv nach `*.hinote` (Datei-API, Legacy-Speicherzugriff, Tiefe 3, keine Symlinks) und importiert alle. */
     fun importFromFolder() {
         if (!NotesLocation.hasAccess(activity)) {
             EinkDialog.message(activity, activity.getString(R.string.import_title), activity.getString(R.string.error_no_storage), activity.getString(R.string.dialog_ok))
@@ -71,11 +70,9 @@ internal class HinoteImportFlow(private val activity: Activity, private val repo
     private fun scanFolder(): List<HinoteImportSource> {
         @Suppress("DEPRECATION")
         val dir = File(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "hinote"), "custom")
-        val files = (dir.listFiles() ?: emptyArray())
-            .filter { it.isFile && it.name.endsWith(".hinote", ignoreCase = true) && !Files.isSymbolicLink(it.toPath()) }
-            .sortedBy { it.name }
-            .take(MAX_FILES)
-        return files.map { f -> HinoteImportSource(f.name) { f.inputStream() } }
+        return HinoteFolderScanner.scan(dir, MAX_FILES).map { s ->
+            HinoteImportSource(s.file.name, HinoteImportPlanner.folderFor(s.relativeDir), s.lastModified, s.relativeDir.isNotEmpty()) { s.file.inputStream() }
+        }
     }
 
     private fun start(sources: () -> List<HinoteImportSource>) {

@@ -5,7 +5,7 @@ Stand: Analyse von HiNote 12.4.3.395 (Format-Kennung der JSON-Dateien `hinote_1.
 gesamten Bestands vom 2026-11-07: **34 Notizen** (die HiNote-Kopfzeile zeigt „34 Notizen“; in den Plänen stand 33),
 264 Seiten, 260 `.bin` (203 `PENCILENGINE`, 57 `HWEINKBYTE`), 71 793 + 18 810 Striche. Die Befunde aus (b) sind in den
 Abschnitten mit **„Gesamtbestand“** gekennzeichnet. Referenzimplementierung: [`tools/hinote_bin.py`](../tools/hinote_bin.py)
-(liest nur `PENCILENGINE`). Exportskript: `tmp/export_all.py`.
+(liest `PENCILENGINE` und das Altformat `HWEINKBYTE`). Exportskript: `tmp/export_all.py`.
 
 Die Beschreibung ist in eigenen Worten aus dem Studium des Dekompilats (`tmp/jadx_src_124`, Pakete
 `hwstylusfeature14`/`hwstylusfeature15`, `com.huawei.stylus.baseengine`) und der Hexdumps der Beispieldateien entstanden.
@@ -146,7 +146,7 @@ kommen nur `base1`, `base6`, `plan2` vor; die übrigen Zuordnungen sind **Annahm
 **Gesamtbestand (Seitenvorlagen, 264 Seiten):** `base6` 157, `base1` 104, `plan2` 2, `plan6` 1 – sonst nichts. Neu belegt
 durch Ansicht der Vorschau-JPG: `plan2` = Tabelle „Fertig / Zeit / To-Dos“ (Kreise links, 14 Zeilen) → `todo` passt;
 **`plan6` ist laut Vorschau eine Vier-Felder-Matrix mit den Achsenbeschriftungen „Dringend / Nicht dringend / Wichtig / Nicht wichtig“**
-(Eisenhower-Matrix, in der App-Tabelle als „Zeitmanagement“ geführt) und fällt im Importer auf `blank`. `base3` kommt nur
+(Eisenhower-Matrix, in der App-Tabelle als „Zeitmanagement“ geführt). `TemplateCatalog` hat keine passende Vorlage (geprüft: blank, lines_wide, lines_narrow, dotted, handwriting, millimeter, grid, letter, todo, meeting, weekly, monthly, tasks, error_log, reading_notes, cornell); die Seite bleibt im Import bewusst `blank`, eine neue Vorlage ist nicht gebaut. `base3` kommt nur
 als Notiz-`background` vor (`shibari`; die Seiten haben `base6`), nicht als Seitenvorlage – die Zuordnung `base3` → `grid`
 bleibt Annahme. Alle anderen Tabellenzeilen (`base2`, `base4`, `base5`, `handwrite*`, `plan1/3/4/5`, `learning*`) sind im Bestand
 **nicht** vorhanden, also weiter Annahme.
@@ -287,8 +287,9 @@ Gruppen fassen Striche zu einem erkannten Objekt (Formerkennung) zusammen; solch
 **`HWEINKBYTE` kommt im Gesamtbestand vor: 57 von 260 `.bin` (22 %), 18 810 Striche, in 8 von 34 Notizen** – `BIT 2023` (10 von 15 Seiten),
 `BIT-2022` (13/13), `ESTV` (2/6), `RHTE 2023` (BIT, 8/8), `BR-Seminar Waldsrode 2022` (11/11), `RHTE 2023` (Open Shift, 1/1),
 `Sibari Advent` (2/2), `shibari` (10/94). Gemischte Notizen enthalten beide Formate nebeneinander. Das ist der
-Altformat-Weg („Version 1“, Datei-Kennung `HWEINKBYTE`); `tools/hinote_bin.py` und der Kotlin-Importer
-(`HinoteBinParser`: `BadMagic`) lesen es **nicht**.
+Altformat-Weg („Version 1“, Datei-Kennung `HWEINKBYTE`); `tools/hinote_bin.py` (`parse_legacy_bin`) und der Kotlin-Importer
+(`HinoteBinParser.parseLegacy`) lesen es seit dem Gesamtimport. Sicherheitsprüfungen wie beim neuen Format: Größenfelder vor jeder
+Allokation gegen die Dateilänge, Strich-/Punktzahl-Limits, Abschnitt endet exakt am Dateiende (Restbytes → Fehler).
 
 Aufbau (Big-Endian; aus Hexdump aller 57 Dateien und den Lesepfaden in `tmp/jadx_src/sources/b/a/a/a/c/b.java`; alle 57 Dateien
 laufen ohne Restbytes durch):
@@ -307,13 +308,13 @@ Kopf-Breite/-Höhe (1404 × 1677 bei `pageRatio` 0,8357; 1404 × 1460 bei 0,9616
 Kugelschreiber) und **ARGB-Int** (nicht Float) im Strich, die Breite ist 1,0 (1×), 2,0 (5 991×) oder 4,0 (12 818×).
 Druck 0,007 … 0,999. Die Zeit der Punkte ist **absolut** (Millisekunden seit einem Gerätebezug, z. B. 15 710 188 … 326 783 314 –
 Annahme: Betriebszeit), nicht relativ zum Strichanfang. Es gibt nur den einen Abschnitt „Striche“; eine Formgruppe
-(Abschnitt 2) kommt in keiner Datei vor. Importregel wäre die Umrechnung auf Seitenkoordinaten wie bei `PENCILENGINE`
+(Abschnitt 2) kommt in keiner Datei vor. Importregel (umgesetzt) ist die Umrechnung auf Seitenkoordinaten wie bei `PENCILENGINE`
 (`x·1404`, `y·Höhe` bzw. `y·1404·Höhe/Breite` identisch), mit Zeit relativ zum ersten Punkt des Strichs.
 
 | Kennung | Vorkommen | Bemerkung |
 |---|---|---|
 | `PENCILENGINE` | 203 von 260 `.bin` | dieses Dokument |
-| `HWEINKBYTE` | 57 von 260 `.bin` | oben; nicht implementiert |
+| `HWEINKBYTE` | 57 von 260 `.bin` | oben; im Importer und in `tools/hinote_bin.py` implementiert |
 | `HWEINKDATA` | Beta-Altformat im Dekompilat | im Bestand nicht vorhanden |
 | `HWPENKITDATA`, `HWGRAFFI` | in `FileUtil.isFileValid` gelistet | im Bestand nicht vorhanden |
 
@@ -366,9 +367,10 @@ beiden Nicht-Kugelschreiber-Striche); Altformat 1,0, 2,0, 4,0. Einheiten wie in 
 ## 4. Verifikation
 
 Gesamtbestand (2026-11-07): `unzip -t` → **34 von 34 ZIPs fehlerfrei**. `python3 tools/hinote_bin.py check` je Ordner von
-`tmp/device/exp/all` → **26 von 34 fehlerfrei**; die 8 übrigen Notizen scheitern ausschließlich an „Kennung PENCILENGINE fehlt“
-(enthalten `HWEINKBYTE`-Seiten, siehe 2.6) – nicht an Beschädigung. Eine Plausibilitätswarnung: `BR Konferenz 2025`, Strich 294
-liegt 4,5 Einheiten über dem oberen Seitenrand (Strich knapp außerhalb, unkritisch).
+`tmp/device/exp/all` → **34 von 34 fehlerfrei** (vor der Altformat-Unterstützung 26 von 34; die 8 übrigen enthalten `HWEINKBYTE`, siehe 2.6). Die Zahlen
+stimmen mit dem Kotlin-Test `allRealExportsImportWithoutWarnings` überein: 264 Seiten, 260 `.bin`, 71 793 + 18 810 = 90 603 Striche
+(1 251 474 + 333 559 Punkte). Plausibilitätswarnungen: 10 Seiten mit Strichen, die höchstens ~50 Einheiten über den Seitenrand
+reichen (jeweils 1–3 Striche, unkritisch).
 
 Erster Test: `python3 tools/hinote_bin.py check tmp/device/exp/custom` → **14 von 14 Exporten fehlerfrei** (19 `.bin`, 4607 Striche,
 78 119 Punkte, 0 Restbytes, 0 Plausibilitätswarnungen). Geprüft werden: Magic, alle Größenfelder untereinander,
@@ -390,9 +392,9 @@ Schriftbild stimmen überein (Hintergrundpunkte fehlen im eigenen Rendering, wei
 | Favorit/angeheftet | ja | Felder vorhanden, in Proben 0 |
 | Lesezeichen | vermutlich | `pageBookMarks` in Proben leer |
 | Bilder (11), Textboxen (2) | möglich, **noch nicht umgesetzt** | `pageElement[]` siehe 1.2.1; Bilddateien liegen im ZIP |
-| Seiten im Altformat `HWEINKBYTE` | möglich, **Importer liest sie nicht** (Seite bliebe leer, Warnung) | 57 Seiten in 8 Notizen, Aufbau in 2.6 |
+| Seiten im Altformat `HWEINKBYTE` | ja (seit dem Gesamtimport) | 57 Seiten in 8 Notizen, Aufbau in 2.6 |
 | Audioaufnahmen, Gliederung | **ungeprüft/nein** | Listen in Proben leer |
-| Ordner/Kategorie | **nein** (nicht im Export) | extern: `tmp/device/exp/all/index.json`; der Importer legt noch keine Ordner an |
+| Ordner/Kategorie | **nein** (nicht im Export) | extern: `tmp/device/exp/all/index.json`; der Ordnerimport übernimmt die Unterverzeichnisse von `Documents/hinote/custom` als Unterordner von `HiNote-Import` (Abschnitt 6.1) |
 | Erkennungstext (`attachment` Typ 1) | möglich | 27 Seiten, optional für die Suche |
 | Verschlossene Notizen | nicht exportiert | im Bestand keine verschlossene Notiz gefunden (kein Schloss-Symbol, alle 34 exportierbar) |
 | Formgruppen (Abschlussblock) | nur lesen, nicht prüfbar | Proben ohne Gruppen |
@@ -418,8 +420,8 @@ um 192 px verlängert (Annahme: das entspricht der Darstellung von HiNote; am Ge
 | Pinseltyp 1/2/3/4/5/11/12/13 | `penType` = `PenCatalog`-`frameworkType` | 1→4, 2→2, 3→3, 4→6, 5→6, 11→3, 12→4, 13→4 (Spalte „Framework-Typ“ der Tabelle 2.7; 11→3 ist Annahme) |
 | Farbe `(α, R, G, B)` Float | `color` ARGB-Int | `round(v·255)` je Kanal; Pinselwert „Intensität“ ignorieren |
 | `width` | `Stroke.width` | `width` unverändert (Ansichtspixel bei 1404 px Breite); bei Marker/Textmarker prüfen |
-| Punkt `x`, `y` | `Point.x`, `Point.y` | `x·1404/1000`, `y·1404/1000` (gleicher Maßstab für beide Achsen) |
-| Punkt `t_ms` | `Point.time` | Strichstartzeit fehlt (0); Zeit relativ lassen oder Striche fortlaufend mit 0 beginnen |
+| Punkt `x`, `y` | `Point.x`, `Point.y` | `PENCILENGINE`: `x·1404/Breite`, `y·1404/Breite` (gleicher Maßstab für beide Achsen, oben ausgerichtet). `HWEINKBYTE`: zuerst `x·Kopfbreite`, `y·Kopfhöhe` (Kopfbreite 1404), dann derselbe Maßstab `1404/Kopfbreite` = 1 |
+| Punkt `t_ms` | `Point.time` | relativ zum Strichanfang; im Altformat wird die absolute Zeit dazu auf den ersten Punkt bezogen |
 | Punkt `pressure` | `Point.pressure` | direkt |
 | Striche mit `link_index != -1` oder in Abschlussgruppen | überspringen | wie HiNote (`BinFile.visible_strokes`) |
 | `pageElement[]` (Text/Bild) | vorerst nicht | erst mit Beispielexport, der Inhalt enthält |
@@ -428,3 +430,13 @@ Importregeln (AGENT.md): ZIP-Pfade kanonisieren (kein `..`), Größenlimits je E
 begrenzen, `.bin`-Größenfelder gegen Dateilänge prüfen (der Python-Parser macht das vor jeder Allokation), kein Entpacken
 auf die Platte nötig. Der Kotlin-Parser sollte `ByteBuffer.order(BIG_ENDIAN)` nutzen und nach dem Abschlussblock exakt das
 Dateiende verlangen.
+
+### 6.1 Ordnerimport aus `Documents/hinote/custom`
+
+- Der Import „Aus Documents/hinote/custom importieren“ durchsucht das Verzeichnis rekursiv (Tiefe höchstens 3, keine Symlinks, höchstens
+  500 Dateien). Das Unterverzeichnis relativ zur Scanwurzel wird Ordnerpfad unterhalb von `HiNote-Import` (`BIT` → `HiNote-Import/BIT`).
+  Dateien direkt in der Wurzel sowie Verzeichnisnamen, die nach `FolderPath` ungültig sind, oder zu tiefe Verzeichnisse → `HiNote-Import`.
+- **Mehrere Dateien derselben `noteId` im selben Lauf:** Es wird genau eine importiert – die mit dem neuesten Dateizeitstempel; bei Gleichstand
+  die mit den meisten Seiten, dann die im Unterverzeichnis, dann die erste in Namensreihenfolge. Die übrigen zählen als „übersprungen“.
+- Bereits importierte Notizen (gleiche `importSource` im Bestand) werden übersprungen und **nicht** in einen anderen Ordner verschoben.
+- Offen: Die Auswahl über das Dateiauswahl-Fenster (SAF) kennt keine Ordner und legt alles in `HiNote-Import` ab.

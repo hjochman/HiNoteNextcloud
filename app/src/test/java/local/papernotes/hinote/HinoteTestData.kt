@@ -46,6 +46,32 @@ internal object HinoteTestData {
         return out.array()
     }
 
+    /** Punkt des Altformats: x, y normiert 0..1, [t] absolute Zeit (ms). */
+    class LP(val x: Float, val y: Float, val t: Long = 0, val pressure: Float = 0.5f)
+
+    class LS(val points: List<LP>, val brush: Int = 2, val argb: Int = 0xFF000000.toInt(), val width: Float = 2f)
+
+    /** Altformat `HWEINKBYTE` (Doku 2.6). */
+    fun legacyBin(strokes: List<LS>, w: Int = 1404, h: Int = 1677): ByteArray {
+        val sectionLen = 44 + strokes.sumOf { 36 + 28 * it.points.size }
+        val out = buf(40 + sectionLen)
+        out.put("HWEINKBYTE".toByteArray()).put(ByteArray(2))
+        out.putInt(28).putInt(0).putInt(0).putShort(1).putShort(1).putInt(1)
+        out.putInt(40).putInt(sectionLen)
+        // Abschnittskopf (44 B)
+        out.putInt(28).putLong(1_700_000_000_000L).putInt(w).putInt(h).putInt(0).putInt(0).putInt(16).putInt(strokes.size).putInt(0).putInt(0)
+        for (s in strokes) {
+            out.putInt(s.points.size).putShort(1).putShort(1).putInt(s.brush).putInt(s.argb).putFloat(s.width)
+            out.putFloat(0f).putFloat(0f).putFloat(1f).putFloat(1f)
+            s.points.forEachIndexed { i, p ->
+                out.putInt(if (i == 0) 0 else if (i == s.points.size - 1) 1 else 2)
+                out.putFloat(p.x).putFloat(p.y).putFloat(p.pressure).putFloat(0f).putLong(p.t)
+            }
+        }
+        check(out.position() == out.capacity())
+        return out.array()
+    }
+
     private fun buf(n: Int): ByteBuffer = ByteBuffer.allocate(n).order(ByteOrder.BIG_ENDIAN)
 
     private fun stroke(s: S): ByteArray {

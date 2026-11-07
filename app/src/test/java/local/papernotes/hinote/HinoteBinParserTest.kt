@@ -104,3 +104,102 @@ class HinoteBinParserTest {
         assertEquals(1, parsed.visibleStrokes().size)
     }
 }
+
+class HinoteLegacyParserTest {
+    private fun err(bytes: ByteArray) = HinoteBinParser.parse(bytes).errorOrNull()
+
+    private val sample = HinoteTestData.legacyBin(
+        listOf(
+            HinoteTestData.LS(
+                listOf(HinoteTestData.LP(0.5f, 0.25f, 15_710_188L, 0.25f), HinoteTestData.LP(0.75f, 0.5f, 15_710_200L), HinoteTestData.LP(1f, 1f, 15_710_250L, 1f)),
+                brush = 2, argb = 0x80FF8000.toInt(), width = 4f,
+            ),
+            HinoteTestData.LS(listOf(HinoteTestData.LP(0.1f, 0.1f, 5L), HinoteTestData.LP(0.2f, 0.2f, 9L))),
+        ),
+    )
+
+    @Test
+    fun validLegacyFileIsParsedAndNormalised() {
+        val bin = HinoteBinParser.parse(sample).valueOrNull()!!
+        assertEquals(1404, bin.width)
+        assertEquals(1677, bin.height)
+        assertEquals(2, bin.visibleStrokes().size)
+        val s = bin.strokes[0]
+        assertEquals(2, s.brushType)
+        assertEquals(4f, s.width, 0f)
+        assertEquals(-1, s.linkIndex)
+        assertEquals(0x80, Math.round(s.alpha * 255))
+        assertEquals(0xFF, Math.round(s.red * 255))
+        assertEquals(0x80, Math.round(s.green * 255))
+        assertEquals(0, Math.round(s.blue * 255))
+        assertEquals(0.5f * 1404, s.points[0].x, 0.01f) // x * Breite
+        assertEquals(0.25f * 1677, s.points[0].y, 0.01f) // y * Höhe
+        assertEquals(listOf(0, 12, 62), s.points.map { it.timeMs }) // relativ zum Strichanfang
+        assertEquals(0.25f, s.points[0].pressure, 0f)
+        assertEquals(0, bin.strokes[1].points[0].timeMs)
+    }
+
+    @Test
+    fun emptyLegacyPageIsValid() {
+        assertEquals(0, HinoteBinParser.parse(HinoteTestData.legacyBin(emptyList(), h = 1460)).valueOrNull()!!.strokes.size)
+    }
+
+    @Test
+    fun truncatedLegacyFileIsRejectedAtEveryLength() {
+        for (n in sample.indices) assertTrue("Länge $n", err(sample.copyOf(n)) != null)
+    }
+
+    @Test
+    fun appendedByteIsRejected() {
+        assertEquals(HinoteError.TrailingBytes, err(sample + byteArrayOf(0)))
+    }
+
+    @Test
+    fun wrongMagicIsRejected() {
+        assertEquals(HinoteError.BadMagic, err(sample.copyOf().also { it[3] = 'X'.code.toByte() }))
+        assertEquals(HinoteError.BadMagic, err("HWEINKDATA".toByteArray() + ByteArray(60)))
+    }
+
+    @Test
+    fun strokeCountLimitIsEnforcedBeforeAllocation() {
+        val tooMany = sample.copyOf().also { ByteBuffer.wrap(it).putInt(40 + 32, HinoteBinParser.MAX_STROKES + 1) }
+        assertEquals(HinoteError.LimitExceeded, err(tooMany))
+        val huge = sample.copyOf().also { ByteBuffer.wrap(it).putInt(40 + 32, HinoteBinParser.MAX_STROKES) }
+        assertEquals(HinoteError.Truncated, err(huge)) // Anzahl passt nicht in die Restlänge
+        val negative = sample.copyOf().also { ByteBuffer.wrap(it).putInt(40 + 32, -1) }
+        assertEquals(HinoteError.Inconsistent, err(negative))
+    }
+
+    @Test
+    fun pointCountLimitAndOversizedPointCountAreRejected() {
+        val firstStroke = 40 + 44
+        val tooMany = sample.copyOf().also { ByteBuffer.wrap(it).putInt(firstStroke, HinoteBinParser.MAX_POINTS_PER_STROKE + 1) }
+        assertEquals(HinoteError.LimitExceeded, err(tooMany))
+        val beyondEnd = sample.copyOf().also { ByteBuffer.wrap(it).putInt(firstStroke, 5000) }
+        assertEquals(HinoteError.Truncated, err(beyondEnd))
+    }
+
+    @Test
+    fun inconsistentHeaderFieldsAreRejected() {
+        // Abschnittslänge passt nicht zur Datei
+        val shortSection = sample.copyOf().also { ByteBuffer.wrap(it).putInt(36, sample.size - 41) }
+        assertEquals(HinoteError.TrailingBytes, err(shortSection))
+        // Strichzahl kleiner als tatsächlicher Inhalt -> Rest im Abschnitt
+        val fewer = sample.copyOf().also { ByteBuffer.wrap(it).putInt(40 + 32, 1) }
+        assertEquals(HinoteError.Inconsistent, err(fewer))
+        val badHeader = sample.copyOf().also { ByteBuffer.wrap(it).putInt(12, 99) }
+        assertEquals(HinoteError.Inconsistent, err(badHeader))
+        val zeroWidth = sample.copyOf().also { ByteBuffer.wrap(it).putInt(40 + 12, 0) }
+        assertEquals(HinoteError.Inconsistent, err(zeroWidth))
+    }
+
+    @Test
+    fun randomCorruptionNeverThrows() {
+        val rnd = java.util.Random(11)
+        repeat(1000) {
+            val copy = sample.copyOf()
+            copy[rnd.nextInt(copy.size)] = rnd.nextInt().toByte()
+            HinoteBinParser.parse(copy)
+        }
+    }
+}

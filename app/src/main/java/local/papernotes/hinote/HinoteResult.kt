@@ -11,7 +11,7 @@ enum class HinoteError {
     /** Kein lesbarer Export (kein ZIP, kein gzip/JSON, Pflichtfelder fehlen). */
     Corrupt,
 
-    /** `.bin` beginnt nicht mit `PENCILENGINE`. */
+    /** `.bin` beginnt weder mit `PENCILENGINE` noch mit `HWEINKBYTE`. */
     BadMagic,
 
     /** `.bin` endet vor dem Ende eines Abschnitts. */

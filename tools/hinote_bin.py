@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Leser fuer die Stiftdaten `files/<pageId>.bin` (Kennung PENCILENGINE) aus HiNote-Exporten.
+"""Leser fuer die Stiftdaten `files/<pageId>.bin` (Kennungen PENCILENGINE und Altformat HWEINKBYTE) aus HiNote-Exporten.
 
 Eigener Code nach der Formatbeschreibung in docs/hinote-bin-format.md. Der Huawei-Code wurde nur als
 Anleitung zum Format gelesen, nichts davon kopiert.
@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Iterator
 
 MAGIC = b"PENCILENGINE"
+LEGACY_MAGIC = b"HWEINKBYTE"
 
 # Sicherheitsgrenzen (AGENT.md: Groessenlimits, Zip-Bomben)
 MAX_ENTRY_BYTES = 64 * 1024 * 1024
@@ -135,10 +136,69 @@ def _need(d: bytes, off: int, n: int, what: str) -> None:
         raise BinFormatError(f"{what}: {n} Bytes ab {off} ueberschreiten Dateiende ({len(d)})")
 
 
+def parse_legacy_bin(d: bytes) -> BinFile:
+    """Altformat HWEINKBYTE (Doku 2.6) strikt parsen; liefert dieselbe Struktur wie parse_bin.
+
+    x, y sind normiert 0..1 und werden mit Kopfbreite/-hoehe multipliziert; die absolute Zeit (i64) wird relativ
+    zum ersten Punkt des Strichs; ARGB-Int wird in Float-Kanaele zerlegt; Rollen 0/2/1 -> 4/6/5.
+    """
+    n = len(d)
+    _need(d, 0, 40, "Altkopf")
+    hdr, = struct.unpack_from(">I", d, 12)
+    n_sec, = struct.unpack_from(">i", d, 28)
+    if hdr != 28 or n_sec != 1:
+        raise BinFormatError(f"Altformat: Kopf {hdr}, Abschnitte {n_sec}")
+    off, size = struct.unpack_from(">ii", d, 32)
+    if off != hdr + 12 or size < 44:
+        raise BinFormatError(f"Altformat: Abschnitt {off}/{size}")
+    if off + size > n:
+        raise BinFormatError("Altformat: Abschnitt ueberschreitet Dateiende")
+    if off + size < n:
+        raise BinFormatError(f"{n - off - size} Restbytes nach dem Abschnitt")
+    if struct.unpack_from(">i", d, off)[0] != 28 or struct.unpack_from(">i", d, off + 28)[0] != 16:
+        raise BinFormatError("Altformat: Abschnittskopf unerwartet")
+    ctime, = struct.unpack_from(">q", d, off + 4)
+    width, height = struct.unpack_from(">ii", d, off + 12)
+    n_strokes, = struct.unpack_from(">i", d, off + 32)
+    if width <= 0 or height <= 0:
+        raise BinFormatError(f"Seitenmasse {width}x{height}")
+    if n_strokes < 0 or n_strokes > MAX_STROKES:
+        raise BinFormatError(f"zu viele Striche: {n_strokes}")
+    p = off + 44
+    if n_strokes * 36 > n - p:
+        raise BinFormatError("Altformat: Strichzahl passt nicht in die Datei")
+    role_map = {0: ROLE_FIRST, 1: ROLE_LAST, 2: ROLE_MID}
+    strokes: list[Stroke] = []
+    for i in range(n_strokes):
+        _need(d, p, 36, f"Altstrich {i}")
+        n_pts, _v1, _v2, brush, argb, wf = struct.unpack_from(">ihhiif", d, p)
+        if n_pts < 0 or n_pts > MAX_POINTS_PER_STROKE:
+            raise BinFormatError(f"Altstrich {i}: Punktzahl {n_pts}")
+        p += 36
+        _need(d, p, n_pts * 28, f"Altstrich {i} Punkte")
+        argb &= 0xFFFFFFFF
+        st = Stroke(b"", 0, 0.0, float(max(n_pts - 1, 0)), False, False, -1, brush, 0,
+                    ((argb >> 16) & 255) / 255, ((argb >> 8) & 255) / 255, (argb & 255) / 255, 1.0,
+                    ((argb >> 24) & 255) / 255, wf, 0, False)
+        t0 = 0
+        for k in range(n_pts):
+            role, x, y, pr, e, t = struct.unpack_from(">iffffq", d, p)
+            if k == 0:
+                t0 = t
+            st.points.append(Point(x * width, y * height, t - t0, pr, (e, 0.0, 0.0), role_map.get(role, role), float(k)))
+            p += 28
+        strokes.append(st)
+    if p != off + size:
+        raise BinFormatError(f"Altformat: Strichbereich endet bei {p}, Abschnitt bei {off + size}")
+    return BinFile((1, 1), 0, 0, ctime, ctime, 1, 1, b"", width, height, strokes, [], b"", n)
+
+
 def parse_bin(d: bytes) -> BinFile:
-    """Parst eine .bin strikt. Wirft BinFormatError bei jeder Abweichung, auch bei Restbytes."""
+    """Parst eine .bin strikt (PENCILENGINE oder Altformat HWEINKBYTE). Wirft BinFormatError bei jeder Abweichung, auch bei Restbytes."""
+    if d[:10] == LEGACY_MAGIC:
+        return parse_legacy_bin(d)
     if d[:12] != MAGIC:
-        raise BinFormatError("Kennung PENCILENGINE fehlt")
+        raise BinFormatError("Kennung PENCILENGINE/HWEINKBYTE fehlt")
     _need(d, 12, 4, "Dateikopf")
     (fhs,) = struct.unpack_from(">I", d, 12)
     if fhs != FILE_HEADER_SIZE:
