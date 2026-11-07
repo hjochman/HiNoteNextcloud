@@ -1,15 +1,19 @@
 # HiNote-Export: Container `.hinote` und Stiftdaten `.bin` (PENCILENGINE)
 
-Stand: Analyse von HiNote 12.4.3.395 (Format-Kennung der JSON-Dateien `hinote_1.0.4`) anhand von 14 echten Exporten
-(19 Seiten, 4607 Striche, 78 119 Punkte). Referenzimplementierung: [`tools/hinote_bin.py`](../tools/hinote_bin.py).
+Stand: Analyse von HiNote 12.4.3.395 (Format-Kennung der JSON-Dateien `hinote_1.0.4`) anhand von zwei Beständen:
+**(a)** 14 Exporte aus dem ersten Test (19 Seiten, 4607 Striche, 78 119 Punkte) und **(b)** dem Einmal-Export des
+gesamten Bestands vom 2026-11-07: **34 Notizen** (die HiNote-Kopfzeile zeigt „34 Notizen“; in den Plänen stand 33),
+264 Seiten, 260 `.bin` (203 `PENCILENGINE`, 57 `HWEINKBYTE`), 71 793 + 18 810 Striche. Die Befunde aus (b) sind in den
+Abschnitten mit **„Gesamtbestand“** gekennzeichnet. Referenzimplementierung: [`tools/hinote_bin.py`](../tools/hinote_bin.py)
+(liest nur `PENCILENGINE`). Exportskript: `tmp/export_all.py`.
 
 Die Beschreibung ist in eigenen Worten aus dem Studium des Dekompilats (`tmp/jadx_src_124`, Pakete
 `hwstylusfeature14`/`hwstylusfeature15`, `com.huawei.stylus.baseengine`) und der Hexdumps der Beispieldateien entstanden.
 Der Huawei-Code ist proprietär und wurde weder kopiert noch eingebunden.
 
-**Kennzeichnung:** *belegt* = durch die 14 Beispieldateien (Parser läuft ohne Restbytes, Rendering deckt sich mit der
+**Kennzeichnung:** *belegt* = durch die Beispieldateien (14 Erstproben, 34 Notizen im Gesamtbestand) (Parser läuft ohne Restbytes, Rendering deckt sich mit der
 Vorschau) und/oder eindeutig im Dekompilat. *Annahme* = nur aus Namen, Standardwerten oder einer einzigen Codestelle
-abgeleitet, durch die Proben nicht überprüfbar (alle Proben enthalten nur schwarze Kugelschreiberstriche).
+abgeleitet, durch die Proben nicht überprüfbar (auch der Gesamtbestand enthält fast nur schwarze Kugelschreiberstriche, siehe 2.7).
 
 Alle Zahlen sind **Big-Endian** (wie `java.io.DataInputStream`). `int` = 4 Byte vorzeichenbehaftet, `u16` = 2 Byte
 vorzeichenlos, `i64` = 8 Byte, `f32` = IEEE-754 Single, `bool` = 1 Byte.
@@ -48,9 +52,18 @@ Seiten-ID und Dateiname stimmen überein (`pages/<id>.jhinote` enthält `"id": "
 | `attachment`, `outLineAttachment`, `recordItemEntities` | `[]` | Anhänge, Gliederung, Audioaufnahmen | in den Proben immer leer → nicht prüfbar |
 | `cloudSyncState`, `deleteTag`, `deleteTime`, `extendFields` | – | Sync-/Papierkorbstatus, `hinote_1.0.4` | nein |
 
-**Ordner/Kategorie steht NICHT im Export.** Weder `customNoteContent` noch ein anderer Eintrag nennt den Ordner. Der
-Ordnername muss beim Einmal-Export (Teilaufgabe 4, `tmp/export_all.py` kennt den geöffneten Ordner) extern mitgegeben
-werden, z. B. als Unterverzeichnis oder Dateinamenspräfix.
+**Ordner/Kategorie steht NICHT im Export** (belegt für alle 34 Notizen: kein Feld nennt den Ordner). Der Einmal-Export
+hält den Ordner extern fest: `tmp/device/exp/all/<Ordner>/…` und `tmp/device/exp/all/index.json` (`file`, `title`,
+`folder`, `noteId`, `deviceFile`; Wurzelnotizen haben `folder: ""` und liegen in `_Wurzel/`).
+
+**Gesamtbestand (34 Notizen):** Wurzel 4, Ordner `BIT` 19, `BR` 5, `Open Shift` 3, `Shibary` 2, `Lesenotizen` 1.
+Feldwerte über alle 34: `isFavorite`=0, `isTop`=0, `hasCover`=0, `deleteTag`=0, `createTime`=`modifiedTime`=0, `pageColor`=-1,
+`pageOrientation`=0, `data1`=`{"originDeviceType":"eink","isContentCover":"0"}`; `attachment`, `outLineAttachment`,
+`recordItemEntities` immer leer. Neu: `noteType` ist **100** (29 Notizen) oder **0** (5 Notizen: `BIT-2022`,
+`BR-Seminar Waldsrode 2022`, `RHTE 2023` (Open Shift), `Sibari Advent`, `shibari` – die ältesten Notizen, Annahme:
+Altbestand von einem früheren Gerät); `noteIcon` (Deckblatt-Symbol) kommt vor als `base_1`, `base_3`, `base_4`, `base_11`
+(je 1 Notiz), sonst leer/fehlend; nicht relevant für den Import. Die `background` der Notiz weicht in 6 Notizen von der
+der Seiten ab (z. B. Notiz `base1`, Seiten `base6`) – **die Seite gilt**, wie der Importer es bereits macht.
 
 ### 1.2 Seiten-JSON (`customNotePageContent`)
 
@@ -61,9 +74,9 @@ werden, z. B. als Unterverzeichnis oder Dateinamenspräfix.
 | `background` | `base1`, `base6`, `plan2` | Vorlage der Seite | ja, über Tabelle 1.3 → `Page.template` |
 | `pageRatio` | `0.8357143` | wie oben | ja |
 | `createTime`, `modifiedTime` | ms seit 1970 | Erstell-/Änderungszeit der Seite | ja (für Notizzeit) |
-| `pageBookMarks` | `[]` | Lesezeichen (Entität `NotePageBookMarkEntity`: `bookMarkName`, `noteId`, …) | in Proben immer leer; Annahme: nicht-leer = Seite hat Lesezeichen → `bookmarked=true` |
+| `pageBookMarks` | `[]` | Lesezeichen (Entität `NotePageBookMarkEntity`: `bookMarkName`, `noteId`, …) | **in allen 264 Seiten leer** (Gesamtbestand) → Struktur weiter ungeprüft; Annahme: nicht-leer = Seite hat Lesezeichen → `bookmarked=true` |
 | `lastPageTag` | `0`/`1` | Annahme: 1 = zuletzt geöffnete Seite (genau eine Seite je Notiz hat 1) | nein |
-| `pageElement` | `[]` | Textboxen/Bilder (Entität `page_element`: `element_type`, `positionX/Y/Z`, `width`, `height`, `angle`, `scale`, `content_text`, `html`, `file_path`, `sourceDpi`) | **in allen 19 Proben leer** → Format ungeprüft |
+| `pageElement` | `[]` | Textboxen/Bilder, **Aufbau belegt, siehe 1.2.1** | im Gesamtbestand auf **9 Seiten nicht leer** (11 Bilder, 2 Textboxen) |
 | `attachment[]` | siehe unten | Verweis auf die `.bin` | nur zur Zuordnung |
 | `bkgAttachmentIndex`, `pageType`, `pageColor`, `pageOrientation`, `isDelete`, `cloudSyncState`, `thumbnail` | – | intern | nein |
 | `fileList[]` | `{hash, name}` | SHA-256 + Name der zur Seite gehörenden Dateien (`.bin`, `.jpg`) | zur Integritätsprüfung |
@@ -71,6 +84,38 @@ werden, z. B. als Unterverzeichnis oder Dateinamenspräfix.
 `attachment[0]` hat `attachType: 0`, `data1: {"synDataTpye":"memopage"}` und `filePath` auf den privaten Pfad
 `/data/data/com.huawei.hinote/files/hwFile/<pageId>.bin` (für den Import wertlos; maßgeblich ist `files/<pageId>.bin`).
 Bei leeren Seiten ist `attachment` leer und `fileList` nennt nur die `.jpg`.
+
+**Gesamtbestand:** 260 von 264 Seiten haben eine `.bin` (233 mit genau einem `attachment` vom Typ 0, dazu 27 mit
+zusätzlichem `attachment` vom Typ 1); 4 Seiten sind leer (kein `attachment`, nur `.jpg`). Alle Seiten haben
+`pageType`=1, `bkgAttachmentIndex`=0, `isDelete`=0, `pageColor`=-1, `pageOrientation`=0; je Notiz genau eine Seite mit
+`lastPageTag`=1. `createTime`/`modifiedTime` der Seiten sind in allen 264 Seiten ≠ 0. `pageRatio` ist **0,8357143**
+(144 Seiten, = 1404/1680) oder **0,9616438** (120 Seiten, = 1404/1460; die `.bin` hat dann 1000 × 1039, gerundet
+1404 × 1459; Notizen `shibari`, `Sibari Advent`, `BIT-2022`, `BR-Seminar Waldsrode 2022`).
+
+*`attachment` Typ 1 (neu):* `attachType: 1`, `contentText` = von HiNote erkannter Text der Seite (Schrifterkennung;
+Stichprobe `BIT-2022` Seite 7: „Jeup-Pipeline Library …“ gibt die Handschrift sinngemäß wieder), `filePath` fehlt. Bei
+den 25 Seiten mit Typ-1-Anhang und Altformat-`.bin` heißt die Vorschau **`files/<pageId>.jpeg`** statt `.jpg` (1404 × 1354 in der Stichprobe, mit
+Hintergrund und Handschrift); bei 2 weiteren Seiten bleibt es bei `.jpg`. `.jpeg` ist also ebenfalls ein erlaubter
+Vorschau-Name. Für die Suche in der neuen App wäre `contentText` verwendbar (Annahme: Erkennungstext ist unvollständig/fehlerhaft).
+
+#### 1.2.1 `pageElement[]` (Gesamtbestand, belegt)
+
+| Feld | Bild (`elementType` 1, 11 Stück) | Text (`elementType` 0, 2 Stück) |
+|---|---|---|
+| `positionX`, `positionY` | linke obere Ecke als Bruchteil der Seitenbreite bzw. -höhe (Werte −0,009 … 0,60; leicht negativ möglich) | wie Bild (0,02 … 0,32 / 0,18 … 0,25) |
+| `width`, `height` | Bruchteile (Annahme: von Breite bzw. Höhe der Seite; Breiten 0,59 … 1,00) | 0,38 / 0,067 |
+| `angle` | Drehung, vermutlich Bogenmaß (−0,78 … 0,78), 0 bei zwei Bildern | 0 |
+| `scale` | 1,0 | 1,0 |
+| `positionZ` | Ebenenreihenfolge (große ganze Zahl, auch negativ) | negativ |
+| `filePath` | privater Pfad `…/files/image/<name>.jpg\|png`; **die Bilddatei liegt im ZIP als `files/<name>.jpg` bzw. `.png`** (alle 11 vorhanden, Namen auch in `fileList`) | – |
+| `contentText`, `html` | – | Klartext und `<note><element type="TEXT"><font color ="#ff000000">Text</font></element></note>` |
+| `data1` | `{"sourceDpi":"0","type":"0","stretchSplits":"null"}` | `sourceDpi` „320“ |
+| `createTime`, `modifiedTime`, `isDelete` | ms; `isDelete`=0 | ebenso |
+
+Vorkommen: Bilder auf `BIT-2022` S. 9, `BR-Seminar Waldsrode 2022` S. 9 und `RHTE 2023` (BIT) S. 2, 3, 4, 5, 6, 8 (2×), 9
+(9 JPG, 2 PNG); Textboxen nur in `Das ist ein Tes` (Ordner Lesenotizen, Vorlage `plan6`, Texte „Remarkable“ und „Dies ist
+ein Test“; die Vorschau-JPG zeigt sie eingebrannt). Die Vorschau-JPG enthält Elemente also mit; ohne Elementunterstützung geht
+nur die Vorschau als Ersatz. Ist ein Bild gedreht (`angle`), ist die Drehung um die Mitte Annahme.
 
 ### 1.3 Vorlagen: HiNote-`background` → `TemplateCatalog`-ID
 
@@ -97,6 +142,14 @@ kommen nur `base1`, `base6`, `plan2` vor; die übrigen Zuordnungen sind **Annahm
 | `learning2` | Lesenotizen | `reading_notes` | Annahme |
 | `learning3` | Cornell-Notizen | `cornell` | Annahme |
 | `handwrite3` (Gitterpapier chin.), `learning4` (Punkteblatt), `learning5` (SWOT), `learning6` (Notenlinien), `plan6` (Zeitmanagement) | – | kein Gegenstück → `blank` | Annahme |
+
+**Gesamtbestand (Seitenvorlagen, 264 Seiten):** `base6` 157, `base1` 104, `plan2` 2, `plan6` 1 – sonst nichts. Neu belegt
+durch Ansicht der Vorschau-JPG: `plan2` = Tabelle „Fertig / Zeit / To-Dos“ (Kreise links, 14 Zeilen) → `todo` passt;
+**`plan6` ist laut Vorschau eine Vier-Felder-Matrix mit den Achsenbeschriftungen „Dringend / Nicht dringend / Wichtig / Nicht wichtig“**
+(Eisenhower-Matrix, in der App-Tabelle als „Zeitmanagement“ geführt) und fällt im Importer auf `blank`. `base3` kommt nur
+als Notiz-`background` vor (`shibari`; die Seiten haben `base6`), nicht als Seitenvorlage – die Zuordnung `base3` → `grid`
+bleibt Annahme. Alle anderen Tabellenzeilen (`base2`, `base4`, `base5`, `handwrite*`, `plan1/3/4/5`, `learning*`) sind im Bestand
+**nicht** vorhanden, also weiter Annahme.
 
 `TemplateCatalog.lookup()` fällt bei unbekannten IDs ohnehin auf `blank` zurück. Die JPG-Vorschau enthält den Hintergrund
 (belegt); sie eignet sich als Notbehelf nur für die Anzeige, nicht als Strichersatz (sie enthält die Striche mit).
@@ -229,18 +282,43 @@ c × e Byte; jeder Eintrag beginnt mit der 16-Byte-UUID eines Strichs (gefolgt v
 Gruppen fassen Striche zu einem erkannten Objekt (Formerkennung) zusammen; solche Striche werden beim normalen Laden
 übersprungen.
 
-### 2.6 Weitere Formatvarianten (nur Dekompilat, nicht durch Proben belegt)
+### 2.6 Weitere Formatvarianten
+
+**`HWEINKBYTE` kommt im Gesamtbestand vor: 57 von 260 `.bin` (22 %), 18 810 Striche, in 8 von 34 Notizen** – `BIT 2023` (10 von 15 Seiten),
+`BIT-2022` (13/13), `ESTV` (2/6), `RHTE 2023` (BIT, 8/8), `BR-Seminar Waldsrode 2022` (11/11), `RHTE 2023` (Open Shift, 1/1),
+`Sibari Advent` (2/2), `shibari` (10/94). Gemischte Notizen enthalten beide Formate nebeneinander. Das ist der
+Altformat-Weg („Version 1“, Datei-Kennung `HWEINKBYTE`); `tools/hinote_bin.py` und der Kotlin-Importer
+(`HinoteBinParser`: `BadMagic`) lesen es **nicht**.
+
+Aufbau (Big-Endian; aus Hexdump aller 57 Dateien und den Lesepfaden in `tmp/jadx_src/sources/b/a/a/a/c/b.java`; alle 57 Dateien
+laufen ohne Restbytes durch):
+
+```
+Kennung "HWEINKBYTE" (10 B) + 2 B Null | int Kopfgröße (=28) | int 0 | int 0 | i16 Version (=1) | i16 Unterversion (=1)
+| int Anzahl Abschnitte (=1) | je Abschnitt: int Offset, int Länge (Offset = Kopfgröße + 12 = 40, bis Dateiende)
+Abschnitt "Striche": int 28 (unbekannt) | i64 Zeitstempel (ms, Epoche; Erstellung) | int Breite (=1404) | int Höhe (1677 oder 1460)
+                     | 2 × int 0 | int 16 | int Anzahl Striche n | int 0 | int 0          (44 Byte Kopf)
+Strich:  int Punktzahl p | i16 1 | i16 1 | int Pinseltyp | int ARGB | f32 Breite | 4 × f32 Rechteck (normiert)   (36 Byte)
+Punkt:   int Rolle (0 erster, 2 mittlerer, 1 letzter) | f32 x | f32 y | f32 Druck | f32 (immer 0) | i64 Zeit (ms)  (28 Byte)
+```
+
+Befunde: `x`, `y` sind **normiert 0..1** (x ∈ [0,004; 0,998], y ∈ [−0,001; 1,003]) – Umrechnung `x·Breite`, `y·Höhe` mit der
+Kopf-Breite/-Höhe (1404 × 1677 bei `pageRatio` 0,8357; 1404 × 1460 bei 0,9616). Der Pinsel steht als Typ (alle 18 810 Striche = 2,
+Kugelschreiber) und **ARGB-Int** (nicht Float) im Strich, die Breite ist 1,0 (1×), 2,0 (5 991×) oder 4,0 (12 818×).
+Druck 0,007 … 0,999. Die Zeit der Punkte ist **absolut** (Millisekunden seit einem Gerätebezug, z. B. 15 710 188 … 326 783 314 –
+Annahme: Betriebszeit), nicht relativ zum Strichanfang. Es gibt nur den einen Abschnitt „Striche“; eine Formgruppe
+(Abschnitt 2) kommt in keiner Datei vor. Importregel wäre die Umrechnung auf Seitenkoordinaten wie bei `PENCILENGINE`
+(`x·1404`, `y·Höhe` bzw. `y·1404·Höhe/Breite` identisch), mit Zeit relativ zum ersten Punkt des Strichs.
 
 | Kennung | Vorkommen | Bemerkung |
 |---|---|---|
-| `PENCILENGINE` | HiNote 12.4.x (Export-Proben) | dieses Dokument |
-| `HWEINKBYTE` | 12.3 und 12.4 (Altformat, „Version 1“) | Abschnittstabelle, Striche mit Typ/Farbe-ARGB-int/Breite/Rechteck + Punkte (x, y, Druck, ?, Zeit als i64) |
-| `HWEINKDATA` | Beta-Altformat | Kopf mit Breite/Höhe, Striche mit normiertem Rechteck |
-| `HWPENKITDATA`, `HWGRAFFI` | in `FileUtil.isFileValid` gelistet | nicht untersucht |
+| `PENCILENGINE` | 203 von 260 `.bin` | dieses Dokument |
+| `HWEINKBYTE` | 57 von 260 `.bin` | oben; nicht implementiert |
+| `HWEINKDATA` | Beta-Altformat im Dekompilat | im Bestand nicht vorhanden |
+| `HWPENKITDATA`, `HWGRAFFI` | in `FileUtil.isFileValid` gelistet | im Bestand nicht vorhanden |
 
 Der 12.4.3-Code lehnt `PENCILENGINE` im Altleser ausdrücklich ab (eigener Zweig). Die 12.3.0.372-Quellen
-(`tmp/jadx_src`) kennen die Kennung `PENCILENGINE` gar nicht – Dateien aus 12.3 könnten also noch die Altformate sein.
-Für die 14 Exporte aus 12.4.3 reicht der Parser für `PENCILENGINE`. Ein `HWEINKBYTE`-Leser ist **nicht** implementiert.
+(`tmp/jadx_src`) kennen die Kennung `PENCILENGINE` gar nicht.
 
 ### 2.7 Pinseltyp (Dateiwert) → Stift in `PenCatalog`
 
@@ -250,14 +328,20 @@ abgebildet (2→2, 3→3, 4/5→6, alles andere→4) – dasselbe Muster wie `Pe
 
 | Dateiwert | `PenKitBrushType` | Framework-Typ | `PenCatalog`-ID | Status |
 |---|---|---|---|---|
-| 1 | PEN | 4 | `fountain` | Code belegt (Schreibabbildung Framework 4→1), in Proben nicht vorhanden |
-| **2** | BALLPOINT | 2 | `ballpoint` | **belegt in allen 4607 Strichen** |
-| 3 | PENCIL | 3 | `pencil` | Code belegt |
-| 4 | MARKER | 6 | `marker` | Code belegt (Framework 6→4) |
-| 5 | HIGHLIGHTER | 6 | `marker` (mit Alpha) | Code belegt, Rendering als Annahme |
+| 1 | PEN | 4 | `fountain` | Code belegt; **Gesamtbestand: 1 Strich** (`Api open`, Seite mit Bleistift-Strich) |
+| **2** | BALLPOINT | 2 | `ballpoint` | **belegt: 71 791 von 71 793 `PENCILENGINE`-Strichen und 18 810 von 18 810 `HWEINKBYTE`-Strichen** |
+| 3 | PENCIL | 3 | `pencil` | Code belegt; **Gesamtbestand: 1 Strich** (`Api open`) |
+| 4 | MARKER | 6 | `marker` | Code belegt (Framework 6→4); im Bestand nicht vorhanden |
+| 5 | HIGHLIGHTER | 6 | `marker` (mit Alpha) | Code belegt, Rendering als Annahme; im Bestand nicht vorhanden |
 | 11 | TWOB (2B-Bleistift) | 4 | `pencil` | Annahme (Gruppe Bleistift) |
 | 12 | BEAUTY | 4 | `fountain` | Annahme |
 | 13 | CHINESE_WRITING | 4 | `fountain` | Annahme |
+
+**Gesamtbestand (belegt):** Es kommen nur die Pinseltypen 2 (Kugelschreiber), 3 (1×) und 1 (1×) vor – Marker, Textmarker und
+die Typen 11–13 gibt es im Bestand nicht. **Farben:** alle 71 793 `PENCILENGINE`-Striche sind Schwarz `ff000000` (Alpha 1,0);
+im Altformat 18 803 × `ff000000` und **7 × `ff505050` (Dunkelgrau)** auf einer Seite von `BR-Seminar Waldsrode 2022`
+(`ad7c6cdd…`). Keine Farbstriche, kein Alpha < 1. **Breiten:** `PENCILENGINE` 2,0 (71 560×) und 4,0 (233×, `shibari` und die
+beiden Nicht-Kugelschreiber-Striche); Altformat 1,0, 2,0, 4,0. Einheiten wie in Abschnitt 3.
 
 ---
 
@@ -272,16 +356,21 @@ abgebildet (2→2, 3→3, 4/5→6, alles andere→4) – dasselbe Muster wie `Pe
 | Vorschau-JPG | 903 × 1080 = Seite (1404 × 1680) × 0,643; Verhältnis 0,8361 | belegt |
 | Strichbreite | Zahl wird im Code **ohne Skalierung** als Stiftbreite in Ansichtspixeln übernommen. Test: Rendering mit Faktor 1,0 auf 1404er Breite liefert etwa 1,1-fache Tintenmenge der Vorschau (Schwarzschwelle 110; Faktor 0,75 → 0,75-fach), optisch deckungsgleich | Einheit „Pixel einer 1404 px breiten Ansicht“ ≈ belegt, genauer Faktor offen |
 | Zeit | ms ab erstem Punkt des Strichs | belegt |
-| Farbe | Float-RGBA 0..1 → ARGB; Proben nur Schwarz | Formel belegt, Farbvielfalt ungeprüft |
+| Farbe | `PENCILENGINE`: Float-RGBA 0..1 → ARGB; `HWEINKBYTE`: direkter ARGB-Int. Gesamtbestand: Schwarz und ein Dunkelgrau (`ff505050`) | Formel belegt, Farbvielfalt (bunte Stifte, Alpha) ungeprüft |
 | Druck | 0..1 | belegt |
 | Radierer/Gelöscht | Es gibt **keine** Löschmarkierung im Strichformat; Rendering aller Striche deckt sich mit der Vorschau (nichts Unsichtbares gefunden). Annahme: Gelöschte Striche werden beim Speichern entfernt | Annahme |
-| Text, Bilder, Lesezeichen | **nicht in der `.bin`**, sondern in `pageElement[]`/`pageBookMarks[]` der Seiten-JSON (dort in den Proben leer) | belegt (für die Proben) |
+| Text, Bilder, Lesezeichen | **nicht in der `.bin`**, sondern in `pageElement[]`/`pageBookMarks[]` der Seiten-JSON (Bilder und Text belegt, Lesezeichen im Bestand nie vorhanden) | belegt |
 
 ---
 
 ## 4. Verifikation
 
-`python3 tools/hinote_bin.py check tmp/device/exp/custom` → **14 von 14 Exporten fehlerfrei** (19 `.bin`, 4607 Striche,
+Gesamtbestand (2026-11-07): `unzip -t` → **34 von 34 ZIPs fehlerfrei**. `python3 tools/hinote_bin.py check` je Ordner von
+`tmp/device/exp/all` → **26 von 34 fehlerfrei**; die 8 übrigen Notizen scheitern ausschließlich an „Kennung PENCILENGINE fehlt“
+(enthalten `HWEINKBYTE`-Seiten, siehe 2.6) – nicht an Beschädigung. Eine Plausibilitätswarnung: `BR Konferenz 2025`, Strich 294
+liegt 4,5 Einheiten über dem oberen Seitenrand (Strich knapp außerhalb, unkritisch).
+
+Erster Test: `python3 tools/hinote_bin.py check tmp/device/exp/custom` → **14 von 14 Exporten fehlerfrei** (19 `.bin`, 4607 Striche,
 78 119 Punkte, 0 Restbytes, 0 Plausibilitätswarnungen). Geprüft werden: Magic, alle Größenfelder untereinander,
 Dateiende exakt am Ende des Abschlussblocks, Koordinaten innerhalb der Seite, Zeit monoton ab 0, Druck 0..1, Punktrollen,
 Pinseltyp bekannt. Negativtests (angehängtes Byte, gekürzte Datei, falsche Kennung) werden erkannt.
@@ -300,10 +389,12 @@ Schriftbild stimmen überein (Hintergrundpunkte fehlen im eigenen Rendering, wei
 | Vorlage | teilweise | Tabelle 1.3; unbekannt → `blank` |
 | Favorit/angeheftet | ja | Felder vorhanden, in Proben 0 |
 | Lesezeichen | vermutlich | `pageBookMarks` in Proben leer |
-| Textboxen, Bilder | **ungeprüft** | `pageElement[]` in Proben leer; Beispiel mit Inhalt erforderlich |
+| Bilder (11), Textboxen (2) | möglich, **noch nicht umgesetzt** | `pageElement[]` siehe 1.2.1; Bilddateien liegen im ZIP |
+| Seiten im Altformat `HWEINKBYTE` | möglich, **Importer liest sie nicht** (Seite bliebe leer, Warnung) | 57 Seiten in 8 Notizen, Aufbau in 2.6 |
 | Audioaufnahmen, Gliederung | **ungeprüft/nein** | Listen in Proben leer |
-| Ordner/Kategorie | **nein** (nicht im Export) | extern beim Export festhalten |
-| Verschlossene Notizen | nicht exportiert | – |
+| Ordner/Kategorie | **nein** (nicht im Export) | extern: `tmp/device/exp/all/index.json`; der Importer legt noch keine Ordner an |
+| Erkennungstext (`attachment` Typ 1) | möglich | 27 Seiten, optional für die Suche |
+| Verschlossene Notizen | nicht exportiert | im Bestand keine verschlossene Notiz gefunden (kein Schloss-Symbol, alle 34 exportierbar) |
 | Formgruppen (Abschlussblock) | nur lesen, nicht prüfbar | Proben ohne Gruppen |
 | Vorschau-JPG | nur als Kontrollbild | enthält Hintergrund und Striche |
 
